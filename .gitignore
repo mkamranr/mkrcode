@@ -1,0 +1,7 @@
+/dist/
+/build/
+*.exe
+*.tar
+*.zip
+.DS_Store
+/bundle/out/
