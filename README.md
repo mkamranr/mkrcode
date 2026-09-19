@@ -197,6 +197,13 @@ write-only collector if that matters.
 
 Full detail in **[docs/SECURITY.md](docs/SECURITY.md)**.
 
+## Licence
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Apache 2.0 includes an express grant of patent rights from contributors, and
+requires that the `NOTICE` file be carried forward in redistributions.
+
 ## Documentation
 
 | Document | Covers |

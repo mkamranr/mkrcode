@@ -91,7 +91,7 @@ mockserver: ## Build the dev-only mock vLLM server
 bundle-windows: windows ## Produce the Windows client bundle for removable media
 	@rm -rf $(DIST)/bundle && mkdir -p $(DIST)/bundle
 	cp $(DIST)/mkr.exe $(DIST)/bundle/
-	cp README.md $(DIST)/bundle/
+	cp README.md LICENSE NOTICE $(DIST)/bundle/
 	mkdir -p $(DIST)/bundle/docs
 	cp docs/INSTALLATION.md docs/CONFIGURATION.md docs/USAGE.md docs/SECURITY.md docs/SKILLS.md $(DIST)/bundle/docs/
 	cp deploy/NETWORK-REQUIREMENT.md $(DIST)/bundle/
@@ -112,7 +112,7 @@ bundle-macos: macos ## Produce the macOS bundle
 		cp $(DIST)/mkr-darwin-amd64 $(DIST)/bundle-macos/mkr; \
 	fi
 	chmod +x $(DIST)/bundle-macos/mkr
-	cp README.md $(DIST)/bundle-macos/
+	cp README.md LICENSE NOTICE $(DIST)/bundle-macos/
 	mkdir -p $(DIST)/bundle-macos/docs
 	cp docs/INSTALLATION.md docs/CONFIGURATION.md docs/USAGE.md docs/SECURITY.md docs/SKILLS.md docs/TESTING-LOCALLY.md $(DIST)/bundle-macos/docs/
 	mkdir -p $(DIST)/bundle-macos/examples
