@@ -15,6 +15,8 @@ package netguard
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -126,6 +128,21 @@ func (g *Guard) AllowedHost() string { return g.allowedHost }
 
 // DialContext is a net.Dialer-compatible dial function that refuses any
 // destination other than the permitted one.
+// rootPool returns the system trust store extended with pem.
+func rootPool(pem []byte) (*x509.CertPool, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		// Some platforms cannot enumerate the system store. Starting from
+		// an empty pool is safe: the supplied authority still verifies, and
+		// nothing is silently trusted that was not asked for.
+		pool = x509.NewCertPool()
+	}
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, errors.New("netguard: the certificate authority file contains no usable PEM certificates")
+	}
+	return pool, nil
+}
+
 func (g *Guard) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	if !g.Allowed(addr) {
 		return nil, &BlockedError{Attempted: addr, Allowed: g.allowedHost}
@@ -134,15 +151,54 @@ func (g *Guard) DialContext(ctx context.Context, network, addr string) (net.Conn
 	return d.DialContext(ctx, network, addr)
 }
 
+// Options configures the restricted client.
+type Options struct {
+	// AllowedHost is the single permitted "host:port".
+	AllowedHost string
+	// Timeout bounds a whole request. Zero means no client-level timeout,
+	// which is correct for streaming, where the per-request context
+	// supplies the bound instead.
+	Timeout time.Duration
+	// ExtraRootCAs is PEM-encoded certificate authorities to trust in
+	// addition to the operating system's store.
+	//
+	// An enclave that terminates TLS in front of the inference server does
+	// so with its own certificate authority. On a domain-joined Windows
+	// machine that root is usually already in the system store, but that
+	// cannot be relied on, and there is no route to fetch it at runtime.
+	// Supplying it explicitly is the only offline-safe answer.
+	//
+	// There is deliberately no option to skip verification: an endpoint
+	// whose certificate cannot be verified should be fixed, not ignored.
+	ExtraRootCAs []byte
+}
+
 // NewClient returns the http.Client the rest of the program must use. No
 // other part of the binary constructs a Transport; that invariant is what
 // makes the restriction meaningful.
-func NewClient(hostPort string, timeout time.Duration) (*http.Client, *Guard, error) {
-	g, err := New(hostPort)
+//
+// Both http and https endpoints are supported. The scheme comes from the
+// URL the caller requests; this function only constrains where it may go.
+func NewClient(opt Options) (*http.Client, *Guard, error) {
+	g, err := New(opt.AllowedHost)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	var tlsCfg *tls.Config
+	if len(opt.ExtraRootCAs) > 0 {
+		pool, err := rootPool(opt.ExtraRootCAs)
+		if err != nil {
+			return nil, nil, err
+		}
+		tlsCfg = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	}
+
+	timeout := opt.Timeout
 	tr := &http.Transport{
+		// Left nil unless extra roots were supplied, so the default path
+		// keeps using the operating system's trust store.
+		TLSClientConfig:       tlsCfg,
 		DialContext:           g.DialContext,
 		MaxIdleConns:          8,
 		IdleConnTimeout:       90 * time.Second,

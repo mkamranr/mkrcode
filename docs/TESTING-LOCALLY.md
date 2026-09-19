@@ -114,6 +114,13 @@ mkr probe
 > evaluate the tool, never anything sensitive. This is exactly the exposure the
 > air-gapped deployment exists to prevent.
 
+### Both schemes work
+
+`http://` and `https://` are both supported, and the port defaults from the
+scheme. A local model is usually `http://localhost:11434`; a hosted provider is
+`https://...` on 443. If you get the scheme wrong, `mkr` says so and tells you
+which to use.
+
 ### The egress restriction still applies
 
 `mkr` will reach the endpoint you configured **and nothing else**. That is the

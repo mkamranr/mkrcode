@@ -90,6 +90,10 @@ type Config struct {
 	Endpoint string `json:"endpoint"`
 	// APIKey is sent as a bearer token when vLLM is started with --api-key.
 	APIKey string `json:"api_key,omitempty"`
+	// CACert is a PEM file of certificate authorities to trust in addition
+	// to the operating system's store. Needed when the endpoint presents a
+	// certificate from an internal authority that is not in the OS store.
+	CACert string `json:"ca_cert,omitempty"`
 	// Model is the served model ID. Empty means "use whatever /v1/models reports".
 	Model string `json:"model,omitempty"`
 
@@ -265,6 +269,9 @@ func mergeEnv(cfg *Config) error {
 	if v, ok := os.LookupEnv(envPrefix + "API_KEY"); ok {
 		cfg.APIKey = v
 	}
+	if v, ok := os.LookupEnv(envPrefix + "CA_CERT"); ok {
+		cfg.CACert = v
+	}
 	if v, ok := os.LookupEnv(envPrefix + "MODEL"); ok {
 		cfg.Model = v
 	}
@@ -349,6 +356,14 @@ func (c *Config) Validate() error {
 	}
 	if u.Host == "" {
 		return fmt.Errorf("endpoint %q has no host", c.Endpoint)
+	}
+	if c.CACert != "" {
+		if _, err := os.Stat(c.CACert); err != nil {
+			return fmt.Errorf("ca_cert %q: %w", c.CACert, err)
+		}
+		if u.Scheme != "https" {
+			return fmt.Errorf("ca_cert is set but the endpoint is %s://; a certificate authority only applies to https", u.Scheme)
+		}
 	}
 	if _, err := ParseMode(string(c.Mode)); err != nil {
 		return err

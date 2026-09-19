@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -28,6 +29,7 @@ var settableKeys = map[string]string{
 	"endpoint":      "vLLM base URL, for example http://gpu-01:8000",
 	"model":         "served model ID; empty means whatever /v1/models reports",
 	"api_key":       "bearer token, if vLLM was started with --api-key",
+	"ca_cert":       "PEM file of certificate authorities to trust, for an https endpoint using internal PKI",
 	"mode":          "starting permission mode: plan, approve or auto",
 	"adapter":       "tool-calling strategy: auto, native or xml",
 	"shell":         "executable used by the exec tool",
@@ -100,6 +102,7 @@ func configShow(cfg config.Config) error {
 	fmt.Printf("  max_turns      %d\n", cfg.MaxTurns)
 	fmt.Printf("  redact         %t\n", cfg.Redact)
 	fmt.Printf("  api_key        %s\n", maskSecret(cfg.APIKey))
+	fmt.Printf("  ca_cert        %s\n", orDefault(cfg.CACert, "(system trust store)"))
 	fmt.Println()
 	fmt.Printf("  workspace      %s\n", cfg.Workspace)
 	fmt.Printf("  audit log      %s\n", cfg.AuditPath)
@@ -248,6 +251,21 @@ func parseValue(key, value string) (any, error) {
 			return nil, err
 		}
 		return string(a), nil
+	case "ca_cert":
+		// Check the file now: a path typo would otherwise surface as a TLS
+		// failure that looks like a certificate problem.
+		abs, err := filepath.Abs(value)
+		if err != nil {
+			return nil, fmt.Errorf("ca_cert %q: %w", value, err)
+		}
+		pem, err := os.ReadFile(abs)
+		if err != nil {
+			return nil, fmt.Errorf("ca_cert %q: %w", abs, err)
+		}
+		if !x509.NewCertPool().AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("ca_cert %q contains no usable PEM certificates", abs)
+		}
+		return abs, nil
 	case "endpoint":
 		// Validate now rather than at the next session, when the person who
 		// typed it is no longer watching.

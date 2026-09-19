@@ -14,7 +14,7 @@ import (
 // egress-restricted transport, so tests exercise the production path.
 func newTestClient(t *testing.T, s *mock.Server) *Client {
 	t.Helper()
-	hc, _, err := netguard.NewClient(s.Host(), 30*time.Second)
+	hc, _, err := netguard.NewClient(netguard.Options{AllowedHost: s.Host(), Timeout: 30 * time.Second})
 	if err != nil {
 		t.Fatalf("netguard: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestAPIKeyIsSentAsBearerToken(t *testing.T) {
 	s := mock.New(mock.Turn{Text: "hello"})
 	defer s.Close()
 
-	hc, _, err := netguard.NewClient(s.Host(), 30*time.Second)
+	hc, _, err := netguard.NewClient(netguard.Options{AllowedHost: s.Host(), Timeout: 30 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}

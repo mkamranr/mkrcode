@@ -83,6 +83,7 @@ contain an API key.
 |---|---|---|---|
 | `endpoint` | URL | `http://localhost:8000` | vLLM base URL, without `/v1`. **The only network destination the binary may reach.** |
 | `api_key` | string | *(none)* | Bearer token, if vLLM was started with `--api-key`. |
+| `ca_cert` | path | *(system store)* | PEM file of certificate authorities to trust, for an `https` endpoint using internal PKI. |
 | `model` | string | *(from endpoint)* | Served model ID. Empty means whatever `/v1/models` reports. |
 | `adapter` | `auto` \| `native` \| `xml` | `auto` | Tool-calling strategy. `auto` probes the endpoint and chooses. |
 | `mode` | `plan` \| `approve` \| `auto` | `approve` | Starting permission mode. See [Usage](USAGE.md#permission-modes). |
@@ -99,6 +100,52 @@ contain an API key.
 | `rules_path` | path | *(data dir)* | Allow/deny rules file. |
 | `request_timeout` | duration | `5m` | Per-request timeout, e.g. `"90s"`. |
 | `exec_timeout` | duration | `2m` | Per-command timeout. |
+
+### HTTP and HTTPS
+
+Both are supported. The scheme in `endpoint` decides which is used, and the
+port defaults from it — `443` for `https`, `80` for `http` — so the port only
+needs writing when it is something else.
+
+```console
+mkr config set endpoint http://gpu-01:8000       # plaintext, the usual enclave setup
+mkr config set endpoint https://gpu-01:8443      # TLS on a non-standard port
+mkr config set endpoint https://api.example.com  # TLS on 443
+```
+
+Plain HTTP is the normal arrangement inside an accredited enclave and is
+usually acceptable there, since the traffic never leaves the segment. Use TLS
+when your accreditation requires encryption in transit even internally, or when
+the endpoint is reached through a reverse proxy.
+
+**Certificates from an internal authority.** If TLS is terminated with your own
+CA, that root must be trusted. On a domain-joined Windows workstation it often
+already is, through Group Policy. Where it is not — a standalone machine, or the
+Linux side — supply it:
+
+```console
+mkr config set ca_cert C:\ProgramData\pki\internal-root-ca.pem
+```
+
+This **extends** the operating system's trust store rather than replacing it,
+and is validated when you set it: a missing file or one containing no
+certificates is rejected immediately rather than surfacing later as a TLS
+failure.
+
+There is deliberately no option to skip certificate verification. An endpoint
+whose certificate cannot be verified should be fixed, not ignored.
+
+**Getting the scheme wrong** is a common mistake and the underlying errors are
+unhelpful, so `mkr` explains them:
+
+```console
+$ mkr probe -endpoint https://gpu-01:8000
+mkr: probe: cannot list models: ... http: server gave HTTP response to HTTPS client
+
+The endpoint is configured as https:// but the server responded with plain HTTP.
+If the server is not using TLS, set the endpoint to http:// instead:
+  mkr config set endpoint http://<host>:<port>
+```
 
 ### Tuning `max_model_len`
 
@@ -125,6 +172,7 @@ Useful for CI, containers, or a login script that configures a whole fleet.
 |---|---|
 | `MKR_ENDPOINT` | `endpoint` |
 | `MKR_API_KEY` | `api_key` |
+| `MKR_CA_CERT` | `ca_cert` |
 | `MKR_MODEL` | `model` |
 | `MKR_MODE` | `mode` |
 | `MKR_ADAPTER` | `adapter` |

@@ -3,6 +3,8 @@ package provider
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -67,7 +69,7 @@ func (c *Client) Models(ctx context.Context) ([]ModelInfo, error) {
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("GET /v1/models: %w", err)
+		return nil, fmt.Errorf("GET /v1/models: %w", explainTransportError(c.baseURL, err))
 	}
 	defer resp.Body.Close()
 
@@ -107,7 +109,7 @@ func (c *Client) Stream(ctx context.Context, req ChatRequest, yield func(Event) 
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		return fmt.Errorf("POST /v1/chat/completions: %w", err)
+		return fmt.Errorf("POST /v1/chat/completions: %w", explainTransportError(c.baseURL, err))
 	}
 	defer resp.Body.Close()
 
@@ -252,6 +254,60 @@ func apiError(resp *http.Response) error {
 		msg = resp.Status
 	}
 	return &APIError{StatusCode: resp.StatusCode, Message: msg}
+}
+
+// explainTransportError turns a cryptic transport failure into advice.
+//
+// The two most common misconfigurations are scheme mismatches, and both
+// produce errors that read like a server fault rather than a typo in a URL.
+// The third is an endpoint using an internal certificate authority, which
+// produces an x509 error that says nothing about how to fix it.
+func explainTransportError(baseURL string, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	// https:// against a server speaking plaintext. The transport reports
+	// this as "server gave HTTP response to HTTPS client"; a bare TLS
+	// record error appears when the first bytes are not a handshake at all.
+	var recErr tls.RecordHeaderError
+	if errors.As(err, &recErr) ||
+		strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {
+		return fmt.Errorf("%w\n\n"+
+			"The endpoint is configured as https:// but the server responded with plain HTTP. "+
+			"If the server is not using TLS, set the endpoint to http:// instead:\n"+
+			"  mkr config set endpoint http://<host>:<port>", err)
+	}
+
+	// A certificate the system trust store does not recognise.
+	var authErr x509.UnknownAuthorityError
+	var certErr *tls.CertificateVerificationError
+	if errors.As(err, &authErr) || errors.As(err, &certErr) {
+		return fmt.Errorf("%w\n\n"+
+			"The endpoint's TLS certificate was not issued by an authority this machine trusts. "+
+			"If it uses an internal certificate authority, supply it with:\n"+
+			"  mkr config set ca_cert /path/to/internal-ca.pem", err)
+	}
+
+	// A hostname the certificate is not valid for.
+	var hostErr x509.HostnameError
+	if errors.As(err, &hostErr) {
+		return fmt.Errorf("%w\n\n"+
+			"The certificate is not valid for this hostname. Use the name the certificate was "+
+			"issued for, rather than an IP address or an alias.", err)
+	}
+
+	// http:// against a server that only speaks TLS. The transport reports
+	// this as a malformed response, because the TLS handshake bytes are not
+	// valid HTTP, rather than as anything mentioning TLS.
+	if strings.HasPrefix(baseURL, "http://") &&
+		strings.Contains(err.Error(), "malformed HTTP response") {
+		return fmt.Errorf("%w\n\n"+
+			"The endpoint is configured as http:// but the server appears to require TLS. "+
+			"Set the endpoint to https:// instead:\n"+
+			"  mkr config set endpoint https://<host>:<port>", err)
+	}
+	return err
 }
 
 // APIError is a non-2xx response from the endpoint.

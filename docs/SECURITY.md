@@ -78,6 +78,13 @@ compares the resolved destination against the single configured endpoint and
 refuses anything else. Redirects off the permitted host are refused explicitly,
 and no proxy is consulted.
 
+Both `http` and `https` endpoints are supported; the restriction applies
+identically to each, and the destination is checked at dial time, before any
+TLS handshake. Certificate verification is always enforced — there is no option
+to disable it. An endpoint using an internal certificate authority is supported
+by supplying that authority (`ca_cert`), which extends the system trust store
+rather than replacing it.
+
 No other package constructs a transport. That invariant is enforced by a CI lint
 (`make lint-egress`) which fails the build if any package outside `netguard`
 builds an HTTP client — so a future change cannot quietly reintroduce a second

@@ -80,7 +80,7 @@ func TestClientReachesOnlyTheAllowedServer(t *testing.T) {
 	defer forbidden.Close()
 
 	host := strings.TrimPrefix(allowed.URL, "http://")
-	client, guard, err := NewClient(host, 10*time.Second)
+	client, guard, err := NewClient(Options{AllowedHost: host, Timeout: 10 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestRedirectsAreRefused(t *testing.T) {
 	target = "http://evil.example.com/steal"
 
 	host := strings.TrimPrefix(srv.URL, "http://")
-	client, _, err := NewClient(host, 10*time.Second)
+	client, _, err := NewClient(Options{AllowedHost: host, Timeout: 10 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestHTTPSToAllowedHostSucceeds(t *testing.T) {
 	defer srv.Close()
 
 	host := strings.TrimPrefix(srv.URL, "https://")
-	client, _, err := NewClient(host, 10*time.Second)
+	client, _, err := NewClient(Options{AllowedHost: host, Timeout: 10 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestHTTPSToBlockedHostIsRefusedBeforeHandshake(t *testing.T) {
 	defer forbidden.Close()
 
 	host := strings.TrimPrefix(allowed.URL, "https://")
-	client, _, err := NewClient(host, 10*time.Second)
+	client, _, err := NewClient(Options{AllowedHost: host, Timeout: 10 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -72,7 +72,7 @@ func newHarness(t *testing.T, mode config.Mode, allow bool, turns ...mock.Turn) 
 	srv := mock.New(turns...)
 	t.Cleanup(srv.Close)
 
-	hc, _, err := netguard.NewClient(srv.Host(), 30*time.Second)
+	hc, _, err := netguard.NewClient(netguard.Options{AllowedHost: srv.Host(), Timeout: 30 * time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}

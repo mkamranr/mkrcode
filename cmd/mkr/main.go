@@ -230,9 +230,19 @@ func newProvider(cfg config.Config) (*provider.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	var extraCAs []byte
+	if cfg.CACert != "" {
+		extraCAs, err = os.ReadFile(cfg.CACert)
+		if err != nil {
+			return nil, fmt.Errorf("read ca_cert %s: %w", cfg.CACert, err)
+		}
+	}
 	// The stream timeout is enforced per-request via context, not on the
 	// http.Client, because a long streaming turn is legitimate.
-	hc, _, err := netguard.NewClient(host, 0)
+	hc, _, err := netguard.NewClient(netguard.Options{
+		AllowedHost:  host,
+		ExtraRootCAs: extraCAs,
+	})
 	if err != nil {
 		return nil, err
 	}
