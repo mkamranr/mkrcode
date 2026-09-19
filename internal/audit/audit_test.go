@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -226,6 +227,14 @@ func TestLogStoresOnlyWhatItIsGiven(t *testing.T) {
 	}
 }
 
+// The audit log must not be readable by other users of the machine.
+//
+// The two platforms express that differently. Unix permission bits are
+// authoritative and are asserted directly. On Windows the mode bits are
+// meaningless, so access is controlled by an explicit DACL applied at
+// creation; that logic is verified in internal/secureio, and this test
+// asserts only what is true on the running platform rather than a POSIX
+// property Windows does not have.
 func TestAuditFilePermissions(t *testing.T) {
 	l, path := newLogger(t)
 	l.Log(Record{Event: EventSessionStart})
@@ -234,6 +243,14 @@ func TestAuditFilePermissions(t *testing.T) {
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		// Confirm the file was created and is writable; confidentiality is
+		// covered by the DACL tests in internal/secureio.
+		if info.Size() == 0 {
+			t.Error("the audit log is empty")
+		}
+		return
 	}
 	if perm := info.Mode().Perm(); perm&0o077 != 0 {
 		t.Errorf("audit log mode is %o; it must not be group or world readable", perm)

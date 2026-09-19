@@ -58,7 +58,8 @@ that is easy to accept by accident is not a control.
 |---|---|
 | `/mode [plan\|approve\|auto]` | Show or change the permission mode |
 | `/tools` | List the available tools and which of them change things |
-| `/cost` | Token usage for this session |
+| `/cost` | Token usage and how full the context window is |
+| `/compact` | Reduce the transcript now, to free context |
 | `/audit` | Verify the audit log's integrity |
 | `/clear` | Start a fresh conversation, keeping the session |
 | `/help` | Command list |
@@ -81,6 +82,46 @@ for that project. Use it for the things a newcomer would need to be told:
 ```
 
 A personal `MKR.md` in your user config directory applies to every project.
+
+## Long sessions and the context window
+
+Models have a fixed context window. As a session goes on, the transcript grows
+until it would no longer fit, and the assistant would otherwise fail mid-task
+with a server error.
+
+`mkr` handles this automatically. As the window fills it compacts the
+conversation, and tells you when it does:
+
+```
+context compaction: elided 9 older tool result(s) (~24100 to ~14800 tokens)
+```
+
+It drops the least useful history first: the *contents* of files read many
+turns ago, keeping the recent ones intact. If that is not enough it drops the
+oldest exchanges. Your system instructions, your current request and the recent
+conversation are always kept.
+
+Check how full the window is at any time with `/cost`, and compact early with
+`/compact` if you are about to give a long instruction.
+
+If the assistant seems to have forgotten something from earlier in a long
+session, that is compaction. Ask it to read the file again, or start a fresh
+session with `/clear`.
+
+## Checking the installation
+
+```powershell
+mkr selftest
+```
+
+This validates the machine rather than the code: that the shell runs commands,
+that config and data directories resolve and are writable, that the workspace
+jail refuses escape paths, that the audit log can be written and tampering
+detected, that redaction fires, and that the endpoint is reachable.
+
+Use `mkr selftest --skip-endpoint` before the firewall rule exists, and
+`mkr selftest --json` if you need to attach the result to a ticket. It exits
+non-zero if any required check fails.
 
 ## What is recorded
 

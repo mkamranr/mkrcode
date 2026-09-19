@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -431,4 +432,86 @@ func TestAgentContextCancellation(t *testing.T) {
 func marshal(v any) string {
 	b, _ := jsonMarshal(v)
 	return string(b)
+}
+
+// An end-to-end check that a session which would overflow the context
+// window completes instead of failing, and that every request actually sent
+// to the server remains well-formed.
+func TestAgentCompactsLongSessionAndKeepsRequestsValid(t *testing.T) {
+	// Each turn reads a large file, so the transcript grows quickly.
+	var turns []mock.Turn
+	for i := 0; i < 12; i++ {
+		turns = append(turns, mock.Turn{
+			ToolCalls: []mock.ToolCall{{
+				ID:   fmt.Sprintf("c%d", i),
+				Name: "read_file",
+				Args: `{"path":"big.txt"}`,
+			}},
+		})
+	}
+	turns = append(turns, mock.Turn{Text: "finished reviewing."})
+
+	h := newHarness(t, config.ModeAuto, true, turns...)
+	// A small window forces compaction within a handful of turns.
+	h.agent.budget = newBudget(4096)
+	h.agent.cfg.MaxTurns = 20
+
+	big := strings.Repeat("this is a line of source code\n", 400)
+	if err := os.WriteFile(filepath.Join(h.workspace, "big.txt"), []byte(big), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := h.agent.Run(context.Background(), "review big.txt repeatedly"); err != nil {
+		t.Fatalf("a long session must complete, not fail: %v", err)
+	}
+
+	// Compaction must actually have happened, or the test proves nothing.
+	if !h.auditContains(t, "context_compaction") {
+		t.Error("no compaction was recorded; the test did not exercise the budget")
+	}
+
+	// Every request the server received must have well-formed tool-call
+	// pairing. A dangling tool_call_id is a 400 from real vLLM.
+	for i, req := range h.server.Requests() {
+		msgs, _ := req["messages"].([]any)
+		calls := map[string]bool{}
+		results := map[string]bool{}
+		for _, m := range msgs {
+			mm, _ := m.(map[string]any)
+			if tcs, ok := mm["tool_calls"].([]any); ok {
+				for _, tc := range tcs {
+					if t2, ok := tc.(map[string]any); ok {
+						if id, ok := t2["id"].(string); ok {
+							calls[id] = true
+						}
+					}
+				}
+			}
+			if mm["role"] == "tool" {
+				if id, ok := mm["tool_call_id"].(string); ok && id != "" {
+					results[id] = true
+				}
+			}
+		}
+		for id := range results {
+			if !calls[id] {
+				t.Errorf("request %d has tool result %q with no matching tool call", i+1, id)
+			}
+		}
+		// The system prompt must survive every compaction.
+		if len(msgs) == 0 {
+			t.Errorf("request %d has no messages", i+1)
+			continue
+		}
+		first, _ := msgs[0].(map[string]any)
+		if first["role"] != "system" {
+			t.Errorf("request %d does not begin with the system prompt", i+1)
+		}
+	}
+
+	// The audit chain must survive a compacted session.
+	res, err := audit.Verify(h.auditPath)
+	if err != nil || !res.OK {
+		t.Errorf("audit chain broken after compaction: %v %s", err, res.Problem)
+	}
 }

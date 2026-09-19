@@ -8,6 +8,7 @@ package session
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"mkrcode/internal/provider"
+	"mkrcode/internal/secureio"
 )
 
 // Entry is one line of a transcript.
@@ -48,26 +50,39 @@ func NewID() string {
 	return time.Now().UTC().Format("20060102-150405") + "-" + randSuffix()
 }
 
-// randSuffix returns a short suffix that distinguishes sessions started in
-// the same second.
+// randSuffix returns a short random suffix that distinguishes sessions
+// started within the same second.
+//
+// It uses crypto/rand rather than deriving from the clock. A clock-derived
+// suffix collides for calls made close together, because the low bits of the
+// nanosecond counter barely change; two sessions would then share an ID and
+// append to the same transcript file, interleaving them.
 func randSuffix() string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-	n := time.Now().UnixNano()
-	b := make([]byte, 4)
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand does not fail in practice; if it ever does, a
+		// clock-derived suffix is still better than a fixed one.
+		n := time.Now().UnixNano()
+		for i := range b {
+			b[i] = byte(n >> (8 * i))
+		}
+	}
 	for i := range b {
-		b[i] = alphabet[n%int64(len(alphabet))]
-		n /= int64(len(alphabet))
+		b[i] = alphabet[int(b[i])%len(alphabet)]
 	}
 	return string(b)
 }
 
 // Create opens a new transcript in dir.
 func Create(dir, id string) (*Session, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	// Transcripts contain source code and prompts, so they get the same
+	// owner-only protection as the audit log.
+	if err := secureio.MkdirAllPrivate(dir); err != nil {
 		return nil, fmt.Errorf("session: create %s: %w", dir, err)
 	}
 	path := filepath.Join(dir, id+".jsonl")
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := secureio.OpenAppend(path)
 	if err != nil {
 		return nil, fmt.Errorf("session: open %s: %w", path, err)
 	}

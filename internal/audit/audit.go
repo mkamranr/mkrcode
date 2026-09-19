@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"mkrcode/internal/secureio"
 )
 
 // Event names the kind of record.
@@ -31,15 +33,16 @@ type Event string
 
 // The recorded event types.
 const (
-	EventSessionStart Event = "session_start"
-	EventSessionEnd   Event = "session_end"
-	EventUserPrompt   Event = "user_prompt"
-	EventModelRequest Event = "model_request"
-	EventToolCall     Event = "tool_call"
-	EventPermission   Event = "permission"
-	EventRedaction    Event = "redaction"
-	EventModeChange   Event = "mode_change"
-	EventError        Event = "error"
+	EventSessionStart      Event = "session_start"
+	EventSessionEnd        Event = "session_end"
+	EventUserPrompt        Event = "user_prompt"
+	EventModelRequest      Event = "model_request"
+	EventToolCall          Event = "tool_call"
+	EventPermission        Event = "permission"
+	EventRedaction         Event = "redaction"
+	EventModeChange        Event = "mode_change"
+	EventContextCompaction Event = "context_compaction"
+	EventError             Event = "error"
 )
 
 // Record is one line of the audit log.
@@ -142,7 +145,7 @@ func Open(opt Options) (*Logger, error) {
 	if opt.Path == "" {
 		return nil, errors.New("audit: a path is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(opt.Path), 0o700); err != nil {
+	if err := secureio.MkdirAllPrivate(filepath.Dir(opt.Path)); err != nil {
 		return nil, fmt.Errorf("audit: create directory: %w", err)
 	}
 
@@ -153,9 +156,11 @@ func Open(opt Options) (*Logger, error) {
 		return nil, err
 	}
 
-	// 0600: the audit log records what was done in a controlled
-	// environment and should not be world-readable.
-	f, err := os.OpenFile(opt.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	// The audit log records what was done in a controlled environment and
+	// must not be readable by other users of the machine. secureio applies
+	// owner-only access on both Unix and Windows; the mode argument to
+	// os.OpenFile alone does not achieve this on Windows.
+	f, err := secureio.OpenAppend(opt.Path)
 	if err != nil {
 		return nil, fmt.Errorf("audit: open %s: %w", opt.Path, err)
 	}

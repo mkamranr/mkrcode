@@ -45,6 +45,8 @@ type Agent struct {
 	toolDefs []provider.ToolDef
 	// usage accumulates token counts across the session.
 	usage provider.Usage
+	// budget keeps the transcript inside the model's context window.
+	budget *budget
 }
 
 // Options configures an Agent.
@@ -63,6 +65,11 @@ type Options struct {
 	History []provider.Message
 	// SystemPrompt overrides the built-in prompt.
 	SystemPrompt string
+	// MaxModelLen is the context window reported by the probe. Zero
+	// disables budgeting, which is the right behaviour for a server that
+	// does not report one: guessing a window would be worse than not
+	// compacting at all.
+	MaxModelLen int
 }
 
 // New returns an Agent ready to run.
@@ -79,6 +86,13 @@ func New(opt Options) *Agent {
 		render:   opt.Renderer,
 		model:    opt.Model,
 	}
+	maxLen := opt.MaxModelLen
+	if opt.Config.MaxModelLen > 0 {
+		// An explicit configuration value overrides the probe, which is how
+		// an operator constrains a session on a shared server.
+		maxLen = opt.Config.MaxModelLen
+	}
+	a.budget = newBudget(maxLen)
 	for _, t := range a.registry.All() {
 		a.toolDefs = append(a.toolDefs, provider.NewToolDef(t.Name(), t.Description(), t.Schema()))
 	}
@@ -114,6 +128,46 @@ func (a *Agent) SetMode(m config.Mode) {
 		Mode:    string(m),
 		Message: fmt.Sprintf("mode changed from %s to %s", prev, m),
 	})
+}
+
+// compactIfNeeded reduces the transcript when it approaches the context
+// window, reporting what it did to the operator and the audit log.
+func (a *Agent) compactIfNeeded() {
+	if !a.budget.needsCompaction(a.messages) {
+		return
+	}
+	a.applyCompaction("automatic")
+}
+
+// Compact reduces the transcript on request, backing the /compact command.
+func (a *Agent) Compact() {
+	if res := a.applyCompaction("manual"); !res.Changed() {
+		a.render.Info("nothing to compact yet")
+	}
+}
+
+// applyCompaction performs compaction and records it.
+func (a *Agent) applyCompaction(trigger string) compactionResult {
+	msgs, res := a.budget.compact(a.messages)
+	if !res.Changed() {
+		return res
+	}
+	a.messages = msgs
+
+	a.render.Info("%s", res.String())
+	a.log.Log(audit.Record{
+		Event:   audit.EventContextCompaction,
+		Mode:    string(a.perms.Mode()),
+		Summary: res.String(),
+		Message: trigger,
+	})
+	return res
+}
+
+// ContextUsage reports the estimated transcript size and the window, for the
+// /cost command. A zero window means the server did not report one.
+func (a *Agent) ContextUsage() (used, window int) {
+	return a.budget.estimate(a.messages), a.budget.maxModelLen
 }
 
 // ErrMaxTurns is returned when a single request exceeds the turn budget.
@@ -159,6 +213,8 @@ func (a *Agent) Run(ctx context.Context, userInput string) error {
 // stream sends the transcript and renders the reply, returning any tool
 // calls the model made.
 func (a *Agent) stream(ctx context.Context) ([]provider.ToolCall, error) {
+	a.compactIfNeeded()
+
 	req := provider.ChatRequest{
 		Model:       a.model,
 		Messages:    append([]provider.Message(nil), a.messages...),
@@ -206,6 +262,10 @@ func (a *Agent) stream(ctx context.Context) ([]provider.ToolCall, error) {
 		a.log.Log(audit.Record{Event: audit.EventError, Message: err.Error(), Model: a.model})
 		return nil, err
 	}
+
+	// The server's prompt_tokens is ground truth for the size of what we
+	// just sent, so it recalibrates the estimator for the next turn.
+	a.budget.observe(req.Messages, usage.PromptTokens)
 
 	a.usage.PromptTokens += usage.PromptTokens
 	a.usage.CompletionTokens += usage.CompletionTokens

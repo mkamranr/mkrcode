@@ -42,7 +42,9 @@ Added a length check and a nil guard. Tests pass.
 - **Secret redaction** — credentials are scrubbed from tool output before they
   reach the model
 - **Tamper-evident audit log** — hash-chained JSONL of every prompt, tool call,
-  permission decision and file diff
+  permission decision and file diff, stored owner-readable only
+- **Automatic context compaction** — long sessions stay inside the model's
+  window instead of failing mid-task
 
 ## Architecture
 
@@ -52,13 +54,14 @@ internal/
   config/             layered configuration
   provider/           vLLM client, SSE streaming, tool-call adapters, probe
     mock/             scriptable fake server — the whole test strategy
-  agent/              the conversation loop and system prompt
+  agent/              the conversation loop, system prompt, context budgeting
   tools/              read, write, edit, list, glob, grep, exec
   fsjail/             workspace path containment (the security boundary)
   permission/         three modes, allow/deny rules, approval prompts
   netguard/           the only http.Client in the binary
   redact/             secret scrubbing
   audit/              hash-chained append-only log
+  secureio/           owner-only file creation (ACLs on Windows)
   session/            transcript persistence and resume
   ui/                 renderer interface and terminal implementation
 deploy/               vLLM serve profiles, GPU sizing, network requirement
@@ -81,6 +84,20 @@ stream. A misconfigured server degrades instead of failing.
 The fallback parser accepts both the Hermes JSON form and Qwen3-Coder's native
 `<function=…><parameter=…>` form, and reassembles tags split across any stream
 chunk boundary.
+
+### Context budgeting without a tokenizer
+
+vLLM reports `prompt_tokens` for every request, which is the exact size of the
+transcript just sent. `mkr` counts characters and continuously recalibrates its
+chars-per-token ratio against that measurement, converging on a figure correct
+for the specific model and codebase in use. That is why there is no tokenizer
+dependency.
+
+When the transcript approaches the window it is compacted: the bodies of older
+tool results are elided first, then whole exchanges are dropped. An assistant
+message carrying `tool_calls` and the `tool` messages answering it are always
+kept or dropped together — a dangling `tool_call_id` is rejected by vLLM with a
+400, which would turn a context problem into a hard failure.
 
 ## Building
 
@@ -117,7 +134,9 @@ Operator documentation is in `docs/OPERATOR-GUIDE.md`.
 ## Security posture, stated plainly
 
 What is enforced in code: workspace containment, the single permitted network
-destination, deny rules in every mode, read-before-edit, and the audit chain.
+destination, deny rules in every mode, read-before-edit, the audit chain, and
+owner-only access to the audit log and transcripts (explicit DACLs on Windows,
+where file mode bits have no effect).
 
 What is mitigated but not enforced: egress from commands the operator approves,
 which run with the operator's own network access. The deny list refuses the

@@ -135,13 +135,14 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 			Shell:              cfg.Shell,
 			ExecTimeoutSeconds: int(cfg.ExecTimeout.D().Seconds()),
 		}),
-		Perms:    perms,
-		Redactor: redact.New(cfg.Redact),
-		Audit:    auditLog,
-		Session:  sess,
-		Renderer: render,
-		Model:    caps.Model,
-		History:  history,
+		Perms:       perms,
+		Redactor:    redact.New(cfg.Redact),
+		Audit:       auditLog,
+		Session:     sess,
+		Renderer:    render,
+		Model:       caps.Model,
+		History:     history,
+		MaxModelLen: caps.MaxModelLen,
 	})
 
 	if opt.Print || (opt.Prompt != "" && !isInteractive()) {
@@ -231,7 +232,8 @@ func command(line string, ag *agent.Agent, perms *permission.Engine, render *ui.
 		render.Info(`commands:
   /mode [plan|approve|auto]   show or change the permission mode
   /tools                      list the available tools
-  /cost                       show token usage for this session
+  /cost                       show token usage and context window use
+  /compact                    reduce the transcript to free context
   /audit                      show the audit log path and verify its chain
   /clear                      start a fresh conversation
   /help                       this list
@@ -268,6 +270,15 @@ func command(line string, ag *agent.Agent, perms *permission.Engine, render *ui.
 		u := ag.Usage()
 		render.Info("tokens: %d prompt, %d completion, %d total",
 			u.PromptTokens, u.CompletionTokens, u.TotalTokens)
+		if used, window := ag.ContextUsage(); window > 0 {
+			render.Info("context: ~%d of %d tokens (%d%%)", used, window, used*100/window)
+		} else {
+			render.Info("context: ~%d tokens; the server did not report a window size", used)
+		}
+		return false, nil
+
+	case "/compact":
+		ag.Compact()
 		return false, nil
 
 	case "/audit":
