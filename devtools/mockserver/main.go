@@ -18,7 +18,7 @@ import (
 	"os/signal"
 	"strings"
 
-	"mkrcode/internal/provider/mock"
+	"github.com/mkamranr/mkrcode/internal/provider/mock"
 )
 
 func main() {

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	"mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/config"
 )
 
 // Decision is the outcome of evaluating a tool call.

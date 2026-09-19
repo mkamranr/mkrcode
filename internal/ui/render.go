@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"mkrcode/internal/permission"
+	"github.com/mkamranr/mkrcode/internal/permission"
 )
 
 // Renderer receives everything the session displays.

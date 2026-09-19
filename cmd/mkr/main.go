@@ -18,9 +18,9 @@ import (
 	"syscall"
 	"time"
 
-	"mkrcode/internal/config"
-	"mkrcode/internal/netguard"
-	"mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/netguard"
+	"github.com/mkamranr/mkrcode/internal/provider"
 )
 
 // version is stamped at build time with -ldflags "-X main.version=...".

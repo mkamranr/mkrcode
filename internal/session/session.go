@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"mkrcode/internal/provider"
-	"mkrcode/internal/secureio"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/secureio"
 )
 
 // Entry is one line of a transcript.

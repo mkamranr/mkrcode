@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"mkrcode/internal/netguard"
-	"mkrcode/internal/provider/mock"
+	"github.com/mkamranr/mkrcode/internal/netguard"
+	"github.com/mkamranr/mkrcode/internal/provider/mock"
 )
 
 // newTestClient wires a Client to a mock server through the real

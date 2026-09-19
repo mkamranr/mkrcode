@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/provider"
 )
 
 func TestCreateAppendLoadRoundTrip(t *testing.T) {

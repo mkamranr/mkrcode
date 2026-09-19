@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"mkrcode/internal/netguard"
-	"mkrcode/internal/provider/mock"
+	"github.com/mkamranr/mkrcode/internal/netguard"
+	"github.com/mkamranr/mkrcode/internal/provider/mock"
 )
 
 // tlsMock wraps the scriptable mock server in TLS, so the provider and the

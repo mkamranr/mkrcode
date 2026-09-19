@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	"mkrcode/internal/config"
-	"mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/tools"
 )
 
 // memoryFileName is the per-project instruction file loaded into the

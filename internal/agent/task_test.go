@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/config"
-	"mkrcode/internal/provider"
-	"mkrcode/internal/provider/mock"
-	"mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/provider/mock"
+	"github.com/mkamranr/mkrcode/internal/tools"
 )
 
 // enableTasks registers the task tool on a harness agent, mirroring what

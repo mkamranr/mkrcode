@@ -9,17 +9,17 @@ import (
 	"os/user"
 	"strings"
 
-	"mkrcode/internal/agent"
-	"mkrcode/internal/audit"
-	"mkrcode/internal/config"
-	"mkrcode/internal/fsjail"
-	"mkrcode/internal/permission"
-	"mkrcode/internal/provider"
-	"mkrcode/internal/redact"
-	"mkrcode/internal/session"
-	"mkrcode/internal/skills"
-	"mkrcode/internal/tools"
-	"mkrcode/internal/ui"
+	"github.com/mkamranr/mkrcode/internal/agent"
+	"github.com/mkamranr/mkrcode/internal/audit"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/permission"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/redact"
+	"github.com/mkamranr/mkrcode/internal/session"
+	"github.com/mkamranr/mkrcode/internal/skills"
+	"github.com/mkamranr/mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/ui"
 )
 
 // chatOptions carries the invocation-specific settings for a session.

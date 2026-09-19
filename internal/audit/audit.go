@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"mkrcode/internal/secureio"
+	"github.com/mkamranr/mkrcode/internal/secureio"
 )
 
 // Event names the kind of record.

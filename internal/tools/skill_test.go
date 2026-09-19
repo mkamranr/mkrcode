@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/fsjail"
-	"mkrcode/internal/skills"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/skills"
 )
 
 func newSkillTools(t *testing.T, n int) (*Registry, *skills.Set, string) {

@@ -149,10 +149,23 @@ just sent. `mkr` counts characters and continuously recalibrates its
 chars-per-token ratio against that measurement, converging on a figure correct
 for the model and codebase in use. That is why there is no tokenizer dependency.
 
+## Installing
+
+Download a release archive for [Windows or macOS](https://github.com/mkamranr/mkrcode/releases),
+or install with Go:
+
+```bash
+go install github.com/mkamranr/mkrcode/cmd/mkr@latest
+```
+
+Full instructions, including the air-gapped transfer, are in
+[docs/INSTALLATION.md](docs/INSTALLATION.md).
+
 ## Building from source
 
 Requires Go 1.23+. `CGO_ENABLED=0` throughout, so the binary is static and the
-build needs no C toolchain and no network.
+build needs no C toolchain and no network — the module graph is empty, so
+`GOPROXY=off` builds work.
 
 ```bash
 make check           # vet, tests, race, and the egress invariant lint

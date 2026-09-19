@@ -18,8 +18,14 @@ and some of it is the opposite of what you would do there.
 
 ## Install
 
-Download the macOS archive from the Releases page and extract it. The binary is
-universal — the same file runs on Intel and Apple silicon.
+If you have Go installed, one command is enough:
+
+```bash
+go install github.com/mkamranr/mkrcode/cmd/mkr@latest
+```
+
+Otherwise download the macOS archive from the Releases page and extract it. The
+binary is universal — the same file runs on Intel and Apple silicon.
 
 ```bash
 tar xzf mkr-darwin-1.2.0.tar.gz

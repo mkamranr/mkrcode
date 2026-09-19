@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"mkrcode/internal/audit"
-	"mkrcode/internal/config"
-	"mkrcode/internal/fsjail"
-	"mkrcode/internal/netguard"
-	"mkrcode/internal/permission"
-	"mkrcode/internal/provider"
-	"mkrcode/internal/provider/mock"
-	"mkrcode/internal/redact"
-	"mkrcode/internal/session"
-	"mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/audit"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/netguard"
+	"github.com/mkamranr/mkrcode/internal/permission"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/provider/mock"
+	"github.com/mkamranr/mkrcode/internal/redact"
+	"github.com/mkamranr/mkrcode/internal/session"
+	"github.com/mkamranr/mkrcode/internal/tools"
 )
 
 // recorder captures everything the session would display.

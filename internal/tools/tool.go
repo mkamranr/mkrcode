@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"mkrcode/internal/fsjail"
-	"mkrcode/internal/skills"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/skills"
 )
 
 // Result is the outcome of a tool invocation.

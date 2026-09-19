@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"mkrcode/internal/skills"
+	"github.com/mkamranr/mkrcode/internal/skills"
 )
 
 // skillTool loads the full instructions of a named skill.

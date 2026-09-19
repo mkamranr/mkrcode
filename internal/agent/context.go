@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/provider"
 )
 
 // Context budgeting keeps the transcript inside the model's window.

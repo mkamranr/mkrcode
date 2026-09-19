@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/config"
 )
 
 // stubPrompter answers confirmations without a terminal.

@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"mkrcode/internal/config"
-	"mkrcode/internal/secureio"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/secureio"
 )
 
 // The config subcommand exists for rollout. Asking every developer to hand-

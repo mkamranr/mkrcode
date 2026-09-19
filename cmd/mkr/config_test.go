@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/config"
 )
 
 // isolateConfig points the user config directory at a temporary location so

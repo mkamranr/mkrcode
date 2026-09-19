@@ -35,13 +35,20 @@ independent — install the client and validate it before the server exists.
 
 ### 1. Obtain the binary
 
-On a **connected** machine, either download the release archive from the
-repository's Releases page, or build it:
+On a **connected** machine, download the release archive from the repository's
+Releases page, or build it yourself:
 
 ```bash
-git clone <repo-url> && cd mkrcode
-make bundle-windows VERSION=1.1.0
-# produces dist/mkr-windows-amd64-1.1.0.zip
+git clone https://github.com/mkamranr/mkrcode.git && cd mkrcode
+make bundle-windows VERSION=1.3.0
+# produces dist/mkr-windows-amd64-1.3.0.zip
+```
+
+For a machine that has Go and internet access, a single command also works,
+though it produces only the binary and not the documented bundle:
+
+```bash
+go install github.com/mkamranr/mkrcode/cmd/mkr@latest
 ```
 
 The archive contains `mkr.exe`, a starter `config.json`, the documentation, and

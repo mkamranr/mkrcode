@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/provider"
 )
 
 // buildTranscript makes a realistic transcript: a system prompt followed by

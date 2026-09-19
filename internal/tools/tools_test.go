@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
 )
 
 func newTestTools(t *testing.T) (*Registry, string) {

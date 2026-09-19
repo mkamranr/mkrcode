@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"mkrcode/internal/audit"
-	"mkrcode/internal/config"
-	"mkrcode/internal/fsjail"
-	"mkrcode/internal/provider"
-	"mkrcode/internal/redact"
-	"mkrcode/internal/skills"
-	"mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/audit"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/fsjail"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/redact"
+	"github.com/mkamranr/mkrcode/internal/skills"
+	"github.com/mkamranr/mkrcode/internal/tools"
 )
 
 // selftest validates that this binary works in the environment it has been

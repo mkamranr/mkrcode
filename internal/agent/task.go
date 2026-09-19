@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	"mkrcode/internal/audit"
-	"mkrcode/internal/config"
-	"mkrcode/internal/provider"
-	"mkrcode/internal/tools"
-	"mkrcode/internal/ui"
+	"github.com/mkamranr/mkrcode/internal/audit"
+	"github.com/mkamranr/mkrcode/internal/config"
+	"github.com/mkamranr/mkrcode/internal/provider"
+	"github.com/mkamranr/mkrcode/internal/tools"
+	"github.com/mkamranr/mkrcode/internal/ui"
 )
 
 // taskTool runs a nested agent with its own conversation, returning only its

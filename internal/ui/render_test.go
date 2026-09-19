@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"mkrcode/internal/permission"
+	"github.com/mkamranr/mkrcode/internal/permission"
 )
 
 func newTestTerminal(input string) (*Terminal, *bytes.Buffer, *bytes.Buffer) {
