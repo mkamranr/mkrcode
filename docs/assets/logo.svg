@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 116" width="372" height="116" role="img" aria-label="MKR Code">
+  <title>MKR Code</title>
+  <g transform="translate(16, 28)">
+    <rect x="3" y="3" width="58" height="58" rx="14"
+          fill="none" stroke="#14B8A6" stroke-width="2.5"
+          stroke-dasharray="38 14" stroke-dashoffset="19" opacity="0.5"/>
+    <rect x="10" y="10" width="44" height="44" rx="11" fill="#0F172A"/>
+    <path d="M21.5 24.5 L28.5 31.5 L21.5 38.5"
+          fill="none" stroke="#2DD4BF" stroke-width="3.6"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="32.5" y="35.4" width="11.5" height="3.4" rx="1.7" fill="#2DD4BF"/>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">
+    <text x="100" y="66" font-size="40" font-weight="700" letter-spacing="1.5" fill="#0F172A">mkr</text>
+    <text x="176" y="66" font-size="40" font-weight="400" letter-spacing="1.5" fill="#64748B">code</text>
+    <text x="101" y="90" font-size="12.5" font-weight="500" letter-spacing="3.1" fill="#14B8A6">AIR-GAPPED CODING AGENT</text>
+  </g>
+</svg>

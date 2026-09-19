@@ -1,13 +1,23 @@
-# mkr
+<div align="center">
 
-An agentic coding assistant for air-gapped environments. It runs against a
-locally hosted vLLM server and contacts nothing else.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+  <img src="docs/assets/logo.svg" alt="MKR Code" width="372">
+</picture>
 
-`mkr` is a single statically linked executable with **zero external
-dependencies** — no installer, no runtime, no DLLs, no `go.sum`. That is the
-whole point: it can be carried in on removable media and run.
+**An agentic coding assistant for air-gapped environments.**
 
-```
+Runs against a self-hosted vLLM server. Contacts nothing else — by design, and enforced in code.
+
+<br>
+
+[Installation](docs/INSTALLATION.md) · [Configuration](docs/CONFIGURATION.md) · [Usage](docs/USAGE.md) · [Security](docs/SECURITY.md) · [Deployment](deploy/README.md)
+
+</div>
+
+---
+
+```console
 $ mkr config set endpoint http://gpu-01:8000
 $ mkr probe
 endpoint:     http://gpu-01:8000
@@ -27,35 +37,79 @@ permission required: edit src/auth.go
   ✓ edited src/auth.go
 → go test ./...
   ✓ exec (exit 0, 2.1s)
+
 Added a length check and a nil guard. Tests pass.
 ```
 
-## What it does
+## Why this exists
 
-- Conversational coding against your repository, with file reading, editing,
-  search and shell execution
-- **Three permission modes** — `plan` (read-only), `approve` (asks every time),
-  `auto` (unattended)
-- **Workspace containment** — no path outside the working directory is
-  reachable, including through symlinks, UNC paths, or Windows device names
-- **Egress restriction enforced in code** — the binary's only HTTP client
-  refuses to dial anything but the configured endpoint
-- **Secret redaction** — credentials are scrubbed from tool output before they
-  reach the model
-- **Tamper-evident audit log** — hash-chained JSONL of every prompt, tool call,
-  permission decision and file diff, stored owner-readable only
-- **Automatic context compaction** — long sessions stay inside the model's
-  window instead of failing mid-task
+Commercial coding assistants require outbound internet to a vendor API. Inside a
+secure enclave that is not permissible, so developers there get no agentic
+assistance at all.
+
+`mkr` is the same working loop — conversation, file reading and editing, shell
+execution, approval prompts — pointed at a model you host yourself, with every
+action audited and no route for data to leave.
+
+## What you get
+
+| | |
+|---|---|
+| **Single static binary** | One `mkr.exe`. No installer, no runtime, no DLLs, **zero external dependencies**. |
+| **Three permission modes** | `plan` is read-only, `approve` asks before every change, `auto` runs unattended. |
+| **Workspace containment** | No path outside the working directory is reachable — including via symlinks, UNC paths, and Windows device names. |
+| **Egress locked in code** | The binary's only HTTP client refuses to dial anything but the configured endpoint. |
+| **Secret redaction** | Credentials are scrubbed from tool output *before* it reaches the model. |
+| **Tamper-evident audit** | Hash-chained log of every prompt, tool call, decision and diff. Owner-readable only. |
+| **Context compaction** | Long sessions stay inside the model's window instead of failing mid-task. |
+
+## Quick start
+
+On a connected machine, download the release, then carry it in:
+
+```powershell
+# 1. Verify the binary
+Get-FileHash .\mkr.exe -Algorithm SHA256     # compare against SHA256SUMS
+
+# 2. Check the machine can run it — works before the server exists
+mkr selftest --skip-endpoint
+
+# 3. Point it at your vLLM host
+mkr config set endpoint http://<inference-host>:8000
+mkr probe
+
+# 4. Use it
+cd C:\repos\my-project
+mkr
+```
+
+Full instructions: **[docs/INSTALLATION.md](docs/INSTALLATION.md)**
+
+## Everyday use
+
+```console
+mkr                                   # interactive session in this directory
+mkr "fix the null check in login.cs"  # one request, then stay interactive
+mkr -p "summarise this module"        # one request, print and exit
+mkr -mode plan "how does auth work?"  # read-only investigation
+mkr -mode auto "run tests and fix"    # unattended
+mkr -resume last                      # continue where you left off
+```
+
+In a session: `/mode`, `/tools`, `/cost`, `/compact`, `/audit`, `/clear`, `/help`.
+`Ctrl+C` interrupts a turn, `Ctrl+D` exits.
+
+See **[docs/USAGE.md](docs/USAGE.md)**.
 
 ## Architecture
 
 ```
-cmd/mkr/              entry point, REPL, slash commands
+cmd/mkr/              entry point, REPL, subcommands
 internal/
   config/             layered configuration
   provider/           vLLM client, SSE streaming, tool-call adapters, probe
     mock/             scriptable fake server — the whole test strategy
-  agent/              the conversation loop, system prompt, context budgeting
+  agent/              conversation loop, system prompt, context budgeting
   tools/              read, write, edit, list, glob, grep, exec
   fsjail/             workspace path containment (the security boundary)
   permission/         three modes, allow/deny rules, approval prompts
@@ -69,53 +123,44 @@ deploy/               vLLM serve profiles, GPU sizing, network requirement
 devtools/mockserver/  dev-only fake vLLM (build-tagged, never shipped)
 ```
 
-Every tool call passes the same gate in the same order: **permission →
-execution → redaction → audit**. That ordering is enforced once, in
-`internal/agent`, rather than in each tool.
+Every tool call passes the same gate in the same order:
+**permission → execution → redaction → audit.** That ordering is enforced once,
+in `internal/agent`, rather than in each tool.
 
 ### Tool calling adapts to the server
 
-The served model and vLLM's `--tool-call-parser` flag are not known in advance,
-and at least one target model postdates available documentation. So `mkr` does
-not assume: at startup it asks the endpoint to make one real tool call. If that
-works it uses the native OpenAI `tools` protocol; if it does not, it falls back
-to carrying schemas in the system prompt and parsing calls out of the text
-stream. A misconfigured server degrades instead of failing.
+The served model and vLLM's `--tool-call-parser` flag are not known in advance.
+So `mkr` does not assume: at startup it asks the endpoint to make one real tool
+call. If that works it uses the native OpenAI `tools` protocol; if not, it falls
+back to carrying schemas in the system prompt and parsing calls out of the text
+stream. **A misconfigured server degrades instead of failing.**
 
 The fallback parser accepts both the Hermes JSON form and Qwen3-Coder's native
-`<function=…><parameter=…>` form, and reassembles tags split across any stream
-chunk boundary.
+`<function=…>` form, and reassembles tags split across any stream chunk boundary.
 
 ### Context budgeting without a tokenizer
 
-vLLM reports `prompt_tokens` for every request, which is the exact size of the
-transcript just sent. `mkr` counts characters and continuously recalibrates its
+vLLM reports `prompt_tokens` on every response — the exact size of the transcript
+just sent. `mkr` counts characters and continuously recalibrates its
 chars-per-token ratio against that measurement, converging on a figure correct
-for the specific model and codebase in use. That is why there is no tokenizer
-dependency.
+for the model and codebase in use. That is why there is no tokenizer dependency.
 
-When the transcript approaches the window it is compacted: the bodies of older
-tool results are elided first, then whole exchanges are dropped. An assistant
-message carrying `tool_calls` and the `tool` messages answering it are always
-kept or dropped together — a dangling `tool_call_id` is rejected by vLLM with a
-400, which would turn a context problem into a hard failure.
-
-## Building
-
-```
-make check          # vet, tests, and the egress invariant lint
-make windows        # dist/mkr.exe for the air-gapped clients
-make bundle-windows # the shippable zip with checksums
-```
+## Building from source
 
 Requires Go 1.23+. `CGO_ENABLED=0` throughout, so the binary is static and the
-build needs no C toolchain.
+build needs no C toolchain and no network.
 
-## Developing without a GPU
+```bash
+make check           # vet, tests, race, and the egress invariant lint
+make windows         # dist/mkr.exe
+make bundle-windows  # the shippable zip with checksums
+```
+
+### Developing without a GPU
 
 The entire system is testable with no GPU and no network:
 
-```
+```bash
 make mockserver
 ./dist/mockserver -addr 127.0.0.1:8000 -scenario demo &
 ./dist/mkr -endpoint http://127.0.0.1:8000 -mode auto -p "improve greet.py"
@@ -124,29 +169,32 @@ make mockserver
 `-scenario` accepts `demo` (a full tool-using session), `secret` (exercises
 redaction) and `egress` (exercises the command deny list).
 
-## Deployment
-
-See `deploy/README.md` for the media transfer procedure, `deploy/SIZING.md` for
-GPU arithmetic, and `deploy/NETWORK-REQUIREMENT.md` for the one firewall rule
-this needs — submit that first, it has the longest lead time.
-
-Operator documentation is in `docs/OPERATOR-GUIDE.md`.
-
 ## Security posture, stated plainly
 
-What is enforced in code: workspace containment, the single permitted network
-destination, deny rules in every mode, read-before-edit, the audit chain, and
-owner-only access to the audit log and transcripts (explicit DACLs on Windows,
-where file mode bits have no effect).
+**Enforced in code:** workspace containment · the single permitted network
+destination · deny rules in every mode · read-before-edit · the audit hash chain
+· owner-only access to logs and transcripts.
 
-What is mitigated but not enforced: egress from commands the operator approves,
-which run with the operator's own network access. The deny list refuses the
-common egress utilities, and every command is recorded before it runs, but
-genuine enforcement requires host firewall policy outside this program.
+**Mitigated, not enforced:** egress from commands the operator approves, which
+run with the operator's own network access. The deny list refuses the common
+egress utilities and every command is recorded before it runs, but genuine
+enforcement requires host firewall policy outside this program.
 
-What is heuristic: secret redaction is pattern-based and will miss unusual
-credential formats.
+**Heuristic:** secret redaction is pattern-based and will miss unusual formats.
 
-What the audit chain does and does not prove: altering or deleting a record is
-detectable; truncating the end of the file is not, from the file alone. Pair it
-with a write-only collector if that matters.
+**What the audit chain proves:** altering or deleting a record is detectable.
+Truncating the end of the file is not, from the file alone — pair it with a
+write-only collector if that matters.
+
+Full detail in **[docs/SECURITY.md](docs/SECURITY.md)**.
+
+## Documentation
+
+| Document | Covers |
+|---|---|
+| [Installation](docs/INSTALLATION.md) | Getting the binary onto air-gapped machines, and the server up |
+| [Configuration](docs/CONFIGURATION.md) | Every setting, where it can be set, and precedence |
+| [Usage](docs/USAGE.md) | Daily use, permission modes, commands, project memory |
+| [Security](docs/SECURITY.md) | The security model and its stated limits |
+| [Deployment](deploy/README.md) | Media transfer, vLLM serve profiles, GPU sizing |
+| [Network requirement](deploy/NETWORK-REQUIREMENT.md) | The one firewall rule, written for a network team |
