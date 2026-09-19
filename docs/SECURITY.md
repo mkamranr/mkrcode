@@ -11,6 +11,7 @@ made explicitly rather than implied.
 - [Secret redaction](#secret-redaction)
 - [Audit log](#audit-log)
 - [File confidentiality](#file-confidentiality)
+- [Extension mechanisms](#extension-mechanisms)
 - [Supply chain](#supply-chain)
 - [Summary of limitations](#summary-of-limitations)
 
@@ -204,6 +205,39 @@ Protected means it does not inherit permissive entries from a parent directory.
 
 ---
 
+## Extension mechanisms
+
+Two are supported, chosen because neither weakens anything above.
+
+**Skills** are markdown instructions, not code. A skill steers the model but
+cannot act; everything it leads to still passes the jail, the permission engine,
+the deny rules and the audit log. `.mkr/skills/**` is a protected path in every
+mode, so the agent cannot author instructions for itself.
+
+Skills are still worth reviewing before installing — the same scrutiny as a
+script someone asks you to run — because they influence what the agent proposes.
+
+**Sub-agents** share the parent's permission engine instance, so a delegated
+write still prompts the operator in `approve` mode and deny rules still apply.
+A sub-agent is not given the `task` tool, so recursion is stopped structurally
+rather than by a counter. Delegation is recorded in the audit log with its own
+event.
+
+### MCP is deliberately excluded
+
+An MCP server is third-party code running with the agent's privileges. It can
+open its own network connections, which **bypasses the egress restriction
+entirely** — the guarantee that this program reaches only the vLLM endpoint
+would become a guarantee about one process among several.
+
+Most servers are Node or Python packages, which would end the zero-dependency
+property and introduce an npm or PyPI supply chain into an environment that
+currently has none.
+
+Record this as an architectural decision rather than an omission. If a specific
+capability is needed, a native tool implementing `tools.Tool` inherits every
+control above automatically.
+
 ## Supply chain
 
 - **Zero external dependencies.** The module graph is empty; there is no
@@ -237,6 +271,9 @@ Stated plainly, for accreditation:
 | Audit log truncation | **Not detectable from the file alone** |
 | Protection against a malicious operator | **Not attempted** — out of scope |
 | Code signing | **Deploying organisation's responsibility** |
+| Skills influencing agent behaviour | **Review before installing** — instructions, not code; cannot escalate |
+| Sub-agent acting unsupervised | **Not possible** — shares the parent's permission engine |
+| MCP / third-party server code | **Not supported, by design** |
 
 ## Reporting a problem
 

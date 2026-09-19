@@ -17,6 +17,7 @@ import (
 	"mkrcode/internal/provider"
 	"mkrcode/internal/redact"
 	"mkrcode/internal/session"
+	"mkrcode/internal/skills"
 	"mkrcode/internal/tools"
 	"mkrcode/internal/ui"
 )
@@ -57,6 +58,15 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 	adapter, err := provider.SelectAdapter(caps.Adapter)
 	if err != nil {
 		return err
+	}
+
+	// Skills are discovered before the tool registry is built, because the
+	// skill tool is only registered when there is something to load.
+	userCfgDir, _ := config.UserConfigDir()
+	skillSet, skillProblems := skills.Discover(cfg.Workspace, userCfgDir)
+	for _, p := range skillProblems {
+		// A malformed skill in a shared repository must not stop a session.
+		render.Warn("skipping skill: %v", p)
 	}
 
 	rules, err := permission.LoadRules(cfg.RulesPath)
@@ -134,7 +144,10 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 			Jail:               jail,
 			Shell:              cfg.Shell,
 			ExecTimeoutSeconds: int(cfg.ExecTimeout.D().Seconds()),
+			Skills:             skillSet,
 		}),
+		EnableTasks: true,
+		Skills:      skillSet,
 		Perms:       perms,
 		Redactor:    redact.New(cfg.Redact),
 		Audit:       auditLog,
@@ -155,7 +168,8 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 	render.Banner(
 		fmt.Sprintf("mkr %s  ·  %s  ·  adapter %s", version, caps.Model, caps.Adapter),
 		fmt.Sprintf("workspace %s", cfg.Workspace),
-		fmt.Sprintf("mode %s  ·  redaction %s  ·  audit %s", perms.Mode(), onOff(cfg.Redact), cfg.AuditPath),
+		fmt.Sprintf("mode %s  ·  redaction %s  ·  skills %d", perms.Mode(), onOff(cfg.Redact), skillSet.Len()),
+		fmt.Sprintf("audit %s", cfg.AuditPath),
 		"/help for commands, /mode to change permissions, Ctrl+C to interrupt, Ctrl+D to exit",
 	)
 	for _, n := range caps.Notes {
@@ -232,6 +246,7 @@ func command(line string, ag *agent.Agent, perms *permission.Engine, render *ui.
 		render.Info(`commands:
   /mode [plan|approve|auto]   show or change the permission mode
   /tools                      list the available tools
+  /skills                     list the installed skills
   /cost                       show token usage and context window use
   /compact                    reduce the transcript to free context
   /audit                      show the audit log path and verify its chain
@@ -262,6 +277,22 @@ func command(line string, ag *agent.Agent, perms *permission.Engine, render *ui.
 				kind = "mutating"
 			}
 			fmt.Fprintf(&b, "  %-12s %s\n", t.Name(), kind)
+		}
+		render.Info("%s", strings.TrimRight(b.String(), "\n"))
+		return false, nil
+
+	case "/skills":
+		all := ag.Skills().All()
+		if len(all) == 0 {
+			render.Info("no skills installed\n" +
+				"  project skills: <workspace>/.mkr/skills/<name>/SKILL.md\n" +
+				"  personal skills: <user config>/mkr/skills/<name>/SKILL.md")
+			return false, nil
+		}
+		var b strings.Builder
+		fmt.Fprintf(&b, "%d skill(s):\n", len(all))
+		for _, sk := range all {
+			fmt.Fprintf(&b, "  %-24s %s\n    %s\n", sk.Name, "("+string(sk.Source)+")", sk.Description)
 		}
 		render.Info("%s", strings.TrimRight(b.String(), "\n"))
 		return false, nil

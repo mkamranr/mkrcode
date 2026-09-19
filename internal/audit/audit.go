@@ -42,6 +42,7 @@ const (
 	EventRedaction         Event = "redaction"
 	EventModeChange        Event = "mode_change"
 	EventContextCompaction Event = "context_compaction"
+	EventSubagentStart     Event = "subagent_start"
 	EventError             Event = "error"
 )
 

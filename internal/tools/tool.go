@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"mkrcode/internal/fsjail"
+	"mkrcode/internal/skills"
 )
 
 // Result is the outcome of a tool invocation.
@@ -112,6 +113,9 @@ type Options struct {
 	MaxOutputBytes int
 	// Tracker records which files have been read, enforcing read-before-edit.
 	Tracker *ReadTracker
+	// Skills are the instruction packs discovered for this session. When
+	// nil, the skill tool is not registered.
+	Skills *skills.Set
 }
 
 // DefaultMaxOutputBytes is the cap applied when Options leaves it unset.
@@ -125,7 +129,7 @@ func Standard(opt Options) *Registry {
 	if opt.Tracker == nil {
 		opt.Tracker = NewReadTracker()
 	}
-	return NewRegistry(
+	reg := NewRegistry(
 		&readFile{opt: opt},
 		&writeFile{opt: opt},
 		&editFile{opt: opt},
@@ -134,6 +138,12 @@ func Standard(opt Options) *Registry {
 		&grepTool{opt: opt},
 		&execTool{opt: opt},
 	)
+	// The skill tool is only offered when there is something to load;
+	// advertising a tool that can only fail wastes a turn.
+	if opt.Skills != nil && opt.Skills.Len() > 0 {
+		reg.Add(&skillTool{opt: opt})
+	}
+	return reg
 }
 
 // decode unmarshals tool arguments, producing an error the model can act on.

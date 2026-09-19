@@ -21,6 +21,7 @@ import (
 	"mkrcode/internal/provider"
 	"mkrcode/internal/redact"
 	"mkrcode/internal/session"
+	"mkrcode/internal/skills"
 	"mkrcode/internal/tools"
 	"mkrcode/internal/ui"
 )
@@ -47,6 +48,11 @@ type Agent struct {
 	usage provider.Usage
 	// budget keeps the transcript inside the model's context window.
 	budget *budget
+	// depth is 0 for the session's agent and 1 for a delegated sub-agent.
+	// It bounds delegation; see maxSubagentDepth.
+	depth int
+	// skills are the instruction packs available this session.
+	skills *skills.Set
 }
 
 // Options configures an Agent.
@@ -65,6 +71,11 @@ type Options struct {
 	History []provider.Message
 	// SystemPrompt overrides the built-in prompt.
 	SystemPrompt string
+	// EnableTasks registers the task tool, letting the agent delegate work
+	// to sub-agents. Off for sub-agents themselves.
+	EnableTasks bool
+	// Skills are listed in the system prompt by name and description.
+	Skills *skills.Set
 	// MaxModelLen is the context window reported by the probe. Zero
 	// disables budgeting, which is the right behaviour for a server that
 	// does not report one: guessing a window would be worse than not
@@ -85,6 +96,7 @@ func New(opt Options) *Agent {
 		sess:     opt.Session,
 		render:   opt.Renderer,
 		model:    opt.Model,
+		skills:   opt.Skills,
 	}
 	maxLen := opt.MaxModelLen
 	if opt.Config.MaxModelLen > 0 {
@@ -93,13 +105,18 @@ func New(opt Options) *Agent {
 		maxLen = opt.Config.MaxModelLen
 	}
 	a.budget = newBudget(maxLen)
+	// Delegation is registered here rather than in tools.Standard because
+	// the tool needs a reference to the agent that owns it.
+	if opt.EnableTasks {
+		a.registry.Add(&taskTool{parent: a})
+	}
 	for _, t := range a.registry.All() {
 		a.toolDefs = append(a.toolDefs, provider.NewToolDef(t.Name(), t.Description(), t.Schema()))
 	}
 
 	prompt := opt.SystemPrompt
 	if prompt == "" {
-		prompt = SystemPrompt(a.cfg, a.registry)
+		prompt = SystemPrompt(a.cfg, a.registry) + tools.SkillPrompt(opt.Skills)
 	}
 	a.messages = append(a.messages, provider.Message{Role: provider.RoleSystem, Content: prompt})
 	// Resumed history follows the system prompt, which is rebuilt each run
@@ -478,3 +495,7 @@ func (a *Agent) Reset() {
 	}
 	a.messages = nil
 }
+
+// Skills returns the instruction packs available to this session, backing
+// the /skills command.
+func (a *Agent) Skills() *skills.Set { return a.skills }

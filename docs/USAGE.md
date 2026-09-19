@@ -94,6 +94,7 @@ not approve every future command.
 |---|---|
 | `/mode [plan\|approve\|auto]` | Show or change the permission mode |
 | `/tools` | List available tools and which of them change things |
+| `/skills` | List the installed skills |
 | `/cost` | Token usage and how full the context window is |
 | `/compact` | Reduce the transcript now, to free context |
 | `/audit` | Verify the audit log's integrity |
@@ -117,6 +118,8 @@ the assistant starts down the wrong path. `Ctrl+D` ends the session.
 | `write_file` | **yes** | Create or replace a file |
 | `edit_file` | **yes** | Replace an exact string in a file |
 | `exec` | **yes** | Run a command in PowerShell |
+| `skill` | no | Load a reusable instruction pack — see [Skills](SKILLS.md) |
+| `task` | **yes** | Delegate self-contained work to a sub-agent |
 
 The assistant must read a file before editing it — editing unseen content is
 how work gets destroyed, so it is refused rather than discouraged.
@@ -185,6 +188,14 @@ This is the highest-leverage thing you can do to improve results. See
 [Configuration](CONFIGURATION.md#project-instructions-mkrmd).
 
 ---
+
+## Skills and delegation
+
+Skills are reusable instructions kept in `.mkr/skills/`, loaded only when
+relevant. Sub-agents handle open-ended investigation without filling your
+context with the reading.
+
+Both are covered in **[Skills and sub-agents](SKILLS.md)**.
 
 ## Non-interactive use
 

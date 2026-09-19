@@ -101,12 +101,21 @@ func run(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	// Recover a subcommand that followed the flags. Without this,
-	// "mkr -C /repo probe" would silently start a chat whose prompt is the
-	// word "probe", which looks like the tool ignoring the command.
+	// Recover a subcommand that followed the flags, then continue parsing
+	// what came after it.
+	//
+	// The flag package stops at the first non-flag argument, so in
+	// "mkr -C /repo selftest --skip-endpoint" it would parse -C, stop at
+	// "selftest", and leave --skip-endpoint unparsed — silently ignoring a
+	// flag the operator typed. Lifting the subcommand out and parsing the
+	// remainder makes flags work on either side of it.
 	rest := fs.Args()
 	if sub == "" && len(rest) > 0 && isSubcommand(rest[0]) {
-		sub, rest = rest[0], rest[1:]
+		sub = rest[0]
+		if err := fs.Parse(rest[1:]); err != nil {
+			return err
+		}
+		rest = fs.Args()
 	}
 	if sub == "help" {
 		fmt.Print(usage)

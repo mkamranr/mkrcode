@@ -99,6 +99,28 @@ func script(name, reply string) []mock.Turn {
 			},
 			{Text: "That command is blocked by policy, so I stopped.", ChunkSize: 5},
 		}
+	case "skills":
+		// Exercises progressive disclosure and delegation end to end: the
+		// model loads a skill, then delegates an investigation.
+		return []mock.Turn{
+			{
+				Text:      "This looks like a commit message task. Let me load the skill.\n",
+				ChunkSize: 6,
+				ToolCalls: []mock.ToolCall{{ID: "c1", Name: "skill", Args: `{"name":"commit-message"}`}},
+			},
+			{
+				Text:      "Now I will delegate finding what changed.\n",
+				ChunkSize: 6,
+				ToolCalls: []mock.ToolCall{{ID: "c2", Name: "task", Args: `{"description":"survey the project","prompt":"List the files in this project and say what it appears to do. Report findings only.","read_only":true}`}},
+			},
+			{
+				Text:      "Looking around.\n",
+				ChunkSize: 6,
+				ToolCalls: []mock.ToolCall{{ID: "s1", Name: "list_dir", Args: `{"path":"."}`}},
+			},
+			{Text: "The project contains greet.py, which defines a greeting helper.", ChunkSize: 5},
+			{Text: "Skill loaded and survey complete. The change adds validation to greet.py.", ChunkSize: 5},
+		}
 	case "demo":
 	default:
 		return []mock.Turn{{Text: reply, ChunkSize: 8}}

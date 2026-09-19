@@ -323,3 +323,22 @@ func TestAllowListExcludesUnlistedCommands(t *testing.T) {
 		t.Error("a command outside the allow list was permitted")
 	}
 }
+
+// Skills are instructions the agent then follows. If it could write its own,
+// the review step that makes skills safe would be meaningless.
+func TestAgentCannotWriteItsOwnSkills(t *testing.T) {
+	for _, mode := range []config.Mode{config.ModePlan, config.ModeApprove, config.ModeAuto} {
+		e := newEngine(t, mode, &stubPrompter{allow: true})
+		for _, p := range []string{
+			".mkr/skills/evil/SKILL.md",
+			".mkr/skills/nested/deep/anything.md",
+			".MKR/SKILLS/Evil/SKILL.md",
+			`.mkr\skills\evil\SKILL.md`,
+		} {
+			req := Request{Tool: "write_file", Mutating: true, Summary: "write " + p, Paths: []string{p}}
+			if out := e.Evaluate(req); out.Decision != Deny {
+				t.Errorf("mode=%s: writing %q was not denied (got %s)", mode, p, out.Decision)
+			}
+		}
+	}
+}

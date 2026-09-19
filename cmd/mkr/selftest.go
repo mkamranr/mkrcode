@@ -16,6 +16,7 @@ import (
 	"mkrcode/internal/fsjail"
 	"mkrcode/internal/provider"
 	"mkrcode/internal/redact"
+	"mkrcode/internal/skills"
 	"mkrcode/internal/tools"
 )
 
@@ -55,6 +56,7 @@ func runSelfTest(ctx context.Context, cfg config.Config, skipEndpoint bool, asJS
 		{"workspace jail", true, checkJail},
 		{"audit log", true, checkAudit},
 		{"redaction", true, checkRedaction},
+		{"skills", false, checkSkills},
 	}
 	if !skipEndpoint {
 		checks = append(checks, check{"endpoint", true, checkEndpoint})
@@ -301,6 +303,21 @@ func checkRedaction(_ context.Context, cfg config.Config) (string, error) {
 		return "", errors.New("redaction reported no findings for a known credential")
 	}
 	return "synthetic credential scrubbed", nil
+}
+
+// checkSkills reports what instruction packs were discovered, and surfaces
+// any that are malformed. Advisory: a broken skill degrades the session, it
+// does not prevent one.
+func checkSkills(_ context.Context, cfg config.Config) (string, error) {
+	userCfgDir, _ := config.UserConfigDir()
+	set, problems := skills.Discover(cfg.Workspace, userCfgDir)
+	if len(problems) > 0 {
+		return "", fmt.Errorf("%d skill(s) could not be loaded: %v", len(problems), problems[0])
+	}
+	if set.Len() == 0 {
+		return "none installed", nil
+	}
+	return fmt.Sprintf("%d discovered: %s", set.Len(), strings.Join(set.Names(), ", ")), nil
 }
 
 // checkEndpoint runs the full capability probe against the configured server.

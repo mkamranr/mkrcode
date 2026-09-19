@@ -78,8 +78,10 @@ bundle-windows: windows ## Produce the Windows client bundle for removable media
 	cp $(DIST)/mkr.exe $(DIST)/bundle/
 	cp README.md $(DIST)/bundle/
 	mkdir -p $(DIST)/bundle/docs
-	cp docs/INSTALLATION.md docs/CONFIGURATION.md docs/USAGE.md docs/SECURITY.md $(DIST)/bundle/docs/
+	cp docs/INSTALLATION.md docs/CONFIGURATION.md docs/USAGE.md docs/SECURITY.md docs/SKILLS.md $(DIST)/bundle/docs/
 	cp deploy/NETWORK-REQUIREMENT.md $(DIST)/bundle/
+	mkdir -p $(DIST)/bundle/examples
+	cp -R examples/skills $(DIST)/bundle/examples/
 	printf '{\n  "endpoint": "http://CHANGE-ME:8000",\n  "mode": "approve",\n  "redact": true\n}\n' > $(DIST)/bundle/config.json
 	cd $(DIST)/bundle && shasum -a 256 $$(find . -type f | sed 's|^\./||' | sort) > SHA256SUMS
 	cd $(DIST) && rm -f mkr-windows-amd64-$(VERSION).zip && zip -qr mkr-windows-amd64-$(VERSION).zip bundle

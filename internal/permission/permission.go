@@ -131,8 +131,11 @@ func DefaultRules() Rules {
 		},
 		DenyPaths: []string{
 			// mkr's own trust anchors must not be rewritable by the agent.
+			// Skills are instructions the agent then follows, so letting it
+			// write its own would defeat the point of reviewing them.
 			".mkr/rules.json",
 			".mkr/config.json",
+			".mkr/skills/**",
 			"**/.git/hooks/**",
 			"**/.ssh/**",
 			"**/*.pem",

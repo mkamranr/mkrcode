@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -247,4 +249,64 @@ func TestMaskSecretDoesNotRevealTheKey(t *testing.T) {
 	if strings.Contains(got, "supersecret") {
 		t.Errorf("maskSecret leaked the key: %q", got)
 	}
+}
+
+// Flags must be parsed whether they precede or follow the subcommand.
+//
+// The flag package stops at the first non-flag argument, so
+// "mkr -C /repo selftest --skip-endpoint" previously left --skip-endpoint
+// unparsed and silently ran the endpoint check anyway. A flag the operator
+// typed being ignored without complaint is worse than an error.
+func TestFlagsParsedOnEitherSideOfSubcommand(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"flags before subcommand", []string{"-C", ".", "selftest", "--skip-endpoint"}},
+		{"flags after subcommand", []string{"selftest", "--skip-endpoint", "-C", "."}},
+		{"flags on both sides", []string{"-C", ".", "selftest", "--skip-endpoint", "--json"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sub, rest, skip := parseForTest(t, tt.args)
+			if sub != "selftest" {
+				t.Errorf("subcommand = %q, want selftest", sub)
+			}
+			if !skip {
+				t.Error("--skip-endpoint was not parsed; the flag was silently ignored")
+			}
+			for _, r := range rest {
+				if strings.HasPrefix(r, "-") {
+					t.Errorf("flag %q was left unparsed in the residual arguments", r)
+				}
+			}
+		})
+	}
+}
+
+// parseForTest mirrors the argument handling in run() closely enough to pin
+// the ordering behaviour without executing a command.
+func parseForTest(t *testing.T, args []string) (sub string, rest []string, skipEndpoint bool) {
+	t.Helper()
+	fs := flag.NewFlagSet("mkr", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	_ = fs.String("C", "", "")
+	skip := fs.Bool("skip-endpoint", false, "")
+	_ = fs.Bool("json", false, "")
+
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") && isSubcommand(args[0]) {
+		sub, args = args[0], args[1:]
+	}
+	if err := fs.Parse(args); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rest = fs.Args()
+	if sub == "" && len(rest) > 0 && isSubcommand(rest[0]) {
+		sub = rest[0]
+		if err := fs.Parse(rest[1:]); err != nil {
+			t.Fatalf("reparse: %v", err)
+		}
+		rest = fs.Args()
+	}
+	return sub, rest, *skip
 }

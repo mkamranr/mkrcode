@@ -11,7 +11,7 @@ Runs against a self-hosted vLLM server. Contacts nothing else — by design, and
 
 <br>
 
-[Installation](docs/INSTALLATION.md) · [Configuration](docs/CONFIGURATION.md) · [Usage](docs/USAGE.md) · [Security](docs/SECURITY.md) · [Deployment](deploy/README.md)
+[Installation](docs/INSTALLATION.md) · [Configuration](docs/CONFIGURATION.md) · [Usage](docs/USAGE.md) · [Skills](docs/SKILLS.md) · [Security](docs/SECURITY.md) · [Deployment](deploy/README.md)
 
 </div>
 
@@ -62,6 +62,7 @@ action audited and no route for data to leave.
 | **Secret redaction** | Credentials are scrubbed from tool output *before* it reaches the model. |
 | **Tamper-evident audit** | Hash-chained log of every prompt, tool call, decision and diff. Owner-readable only. |
 | **Context compaction** | Long sessions stay inside the model's window instead of failing mid-task. |
+| **Skills and sub-agents** | Reusable markdown instruction packs, and delegated work with isolated context. |
 
 ## Quick start
 
@@ -109,7 +110,8 @@ internal/
   config/             layered configuration
   provider/           vLLM client, SSE streaming, tool-call adapters, probe
     mock/             scriptable fake server — the whole test strategy
-  agent/              conversation loop, system prompt, context budgeting
+  agent/              conversation loop, system prompt, context budgeting, sub-agents
+  skills/             discovery of markdown instruction packs
   tools/              read, write, edit, list, glob, grep, exec
   fsjail/             workspace path containment (the security boundary)
   permission/         three modes, allow/deny rules, approval prompts
@@ -182,6 +184,11 @@ enforcement requires host firewall policy outside this program.
 
 **Heuristic:** secret redaction is pattern-based and will miss unusual formats.
 
+**Deliberately absent:** MCP. An MCP server is third-party code running with the
+agent's privileges that can open its own network connections, bypassing the
+egress restriction, and is typically a Node or Python package that would end the
+zero-dependency property. See [docs/SKILLS.md](docs/SKILLS.md#why-there-is-no-mcp-support).
+
 **What the audit chain proves:** altering or deleting a record is detectable.
 Truncating the end of the file is not, from the file alone — pair it with a
 write-only collector if that matters.
@@ -195,6 +202,7 @@ Full detail in **[docs/SECURITY.md](docs/SECURITY.md)**.
 | [Installation](docs/INSTALLATION.md) | Getting the binary onto air-gapped machines, and the server up |
 | [Configuration](docs/CONFIGURATION.md) | Every setting, where it can be set, and precedence |
 | [Usage](docs/USAGE.md) | Daily use, permission modes, commands, project memory |
+| [Skills](docs/SKILLS.md) | Writing and installing skills, delegating to sub-agents |
 | [Security](docs/SECURITY.md) | The security model and its stated limits |
 | [Deployment](deploy/README.md) | Media transfer, vLLM serve profiles, GPU sizing |
 | [Network requirement](deploy/NETWORK-REQUIREMENT.md) | The one firewall rule, written for a network team |
