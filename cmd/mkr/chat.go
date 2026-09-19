@@ -306,9 +306,14 @@ func command(line string, ag *agent.Agent, perms *permission.Engine, render *ui.
 
 // runAuditVerify implements the audit subcommand.
 func runAuditVerify(cfg config.Config, args []string) error {
+	// Both "mkr audit /path" and "mkr audit verify /path" are natural to
+	// type, so a leading "verify" is optional.
+	if len(args) > 0 && strings.EqualFold(args[0], "verify") {
+		args = args[1:]
+	}
 	path := cfg.AuditPath
-	if len(args) > 1 {
-		path = args[1]
+	if len(args) > 0 && args[0] != "" {
+		path = args[0]
 	}
 	res, err := audit.Verify(path)
 	if err != nil {

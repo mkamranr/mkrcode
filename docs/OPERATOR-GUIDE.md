@@ -5,12 +5,23 @@ locally hosted vLLM server and never contacts anything else.
 
 ## First run
 
+Three commands, once per workstation:
+
 ```powershell
-setx MKR_ENDPOINT "http://<inference-host>:8000"
-mkr probe                  # confirm the endpoint is reachable and usable
+mkr config set endpoint http://<inference-host>:8000
+mkr probe                  # confirm it is reachable and report what it supports
 cd C:\path\to\your\repo
 mkr                        # start an interactive session in this directory
 ```
+
+`mkr config show` prints the resolved settings and, for the ones that most
+often surprise people, where each value came from: a default, the user config,
+the project config, an environment variable, or a flag.
+
+Settings can also come from `MKR_ENDPOINT` and friends, or from a
+`.mkr/config.json` committed alongside a repository so a whole team shares the
+same model and mode. Later sources win: user config, then project config, then
+environment, then command-line flags.
 
 The directory you start in is the **workspace**. Every file the assistant can
 read or write must be inside it. Paths outside are refused, including via
@@ -103,6 +114,19 @@ conversation are always kept.
 
 Check how full the window is at any time with `/cost`, and compact early with
 `/compact` if you are about to give a long instruction.
+
+**Tuning it.** The server here serves a 262,144 token window, which is large
+enough that compaction rarely triggers. That is not always what you want: every
+request re-sends the whole transcript, so a very large context makes each turn
+slower and consumes more of the server's memory, reducing how many people can
+work at once. If sessions feel sluggish, cap the window locally:
+
+```powershell
+mkr config set max_model_len 65536
+```
+
+This changes only what your client sends; it does not restart or reconfigure the
+server. Most coding work fits comfortably in 32k-64k tokens.
 
 If the assistant seems to have forgotten something from earlier in a long
 session, that is compaction. Ask it to read the file again, or start a fresh

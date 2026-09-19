@@ -121,6 +121,33 @@ func openAppend(path string) (*os.File, error) {
 	return f, nil
 }
 
+// create makes or replaces path with an explicit owner-only DACL.
+func create(path string) (*os.File, error) {
+	sa, free, err := securityAttributes()
+	if err != nil {
+		return nil, fmt.Errorf("secureio: cannot build a restrictive ACL for %s: %w", path, err)
+	}
+	defer free()
+
+	pathPtr, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return nil, err
+	}
+	handle, err := syscall.CreateFile(
+		pathPtr,
+		syscall.GENERIC_WRITE,
+		syscall.FILE_SHARE_READ,
+		sa,
+		syscall.CREATE_ALWAYS,
+		syscall.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("secureio: create %s: %w", path, err)
+	}
+	return os.NewFile(uintptr(handle), path), nil
+}
+
 // mkdirAllPrivate creates dir and its parents with an owner-only DACL.
 func mkdirAllPrivate(dir string) error {
 	if dir == "" {

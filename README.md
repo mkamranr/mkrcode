@@ -8,6 +8,7 @@ dependencies** — no installer, no runtime, no DLLs, no `go.sum`. That is the
 whole point: it can be carried in on removable media and run.
 
 ```
+$ mkr config set endpoint http://gpu-01:8000
 $ mkr probe
 endpoint:     http://gpu-01:8000
 egress:       restricted to gpu-01:8000

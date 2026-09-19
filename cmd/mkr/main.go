@@ -46,6 +46,8 @@ Usage:
   mkr probe [flags]           report what the configured endpoint supports
   mkr audit [verify] [PATH]   verify the audit log's hash chain
   mkr selftest [flags]        check that this machine can run mkr correctly
+  mkr config [show|path]      show the resolved configuration and its sources
+  mkr config set KEY VALUE    save a setting to the user configuration
   mkr version                 print the build version
 
 Flags:
@@ -68,14 +70,14 @@ Permission modes:
 `
 
 func run(args []string) error {
-	// Split the subcommand out before flag parsing so that flags may follow
-	// it, which is what people type.
+	// A subcommand may appear before the flags ("mkr probe -endpoint X") or
+	// after them ("mkr -C /repo probe"). Both are natural to type, so both
+	// are accepted. The leading case is split out here, before parsing,
+	// because the flag package stops at the first non-flag argument; the
+	// trailing case is picked up from the residual arguments afterwards.
 	sub := ""
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		switch args[0] {
-		case "probe", "version", "help", "audit", "selftest":
-			sub, args = args[0], args[1:]
-		}
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") && isSubcommand(args[0]) {
+		sub, args = args[0], args[1:]
 	}
 
 	fs := flag.NewFlagSet("mkr", flag.ContinueOnError)
@@ -98,6 +100,13 @@ func run(args []string) error {
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	// Recover a subcommand that followed the flags. Without this,
+	// "mkr -C /repo probe" would silently start a chat whose prompt is the
+	// word "probe", which looks like the tool ignoring the command.
+	rest := fs.Args()
+	if sub == "" && len(rest) > 0 && isSubcommand(rest[0]) {
+		sub, rest = rest[0], rest[1:]
 	}
 	if sub == "help" {
 		fmt.Print(usage)
@@ -155,17 +164,28 @@ func run(args []string) error {
 	case "probe":
 		return runProbe(ctx, cfg)
 	case "audit":
-		return runAuditVerify(cfg, args)
+		return runAuditVerify(cfg, rest)
 	case "selftest":
 		return runSelfTest(ctx, cfg, *skipEndpt, *jsonOut)
+	case "config":
+		return runConfig(cfg, rest)
 	default:
 		return runChat(ctx, cfg, chatOptions{
-			Prompt: strings.TrimSpace(strings.Join(fs.Args(), " ")),
+			Prompt: strings.TrimSpace(strings.Join(rest, " ")),
 			Print:  *printMode,
 			Resume: *resume,
 		})
 	}
 }
+
+// subcommands are the verbs mkr accepts in place of a prompt.
+var subcommands = map[string]bool{
+	"probe": true, "version": true, "help": true,
+	"audit": true, "selftest": true, "config": true,
+}
+
+// isSubcommand reports whether s names a subcommand.
+func isSubcommand(s string) bool { return subcommands[s] }
 
 // resolveWorkspace turns the -C flag into an absolute, symlink-resolved
 // directory. Everything the agent may touch is anchored to this path.

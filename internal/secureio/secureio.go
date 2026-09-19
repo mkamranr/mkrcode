@@ -19,6 +19,12 @@ func OpenAppend(path string) (*os.File, error) {
 	return openAppend(path)
 }
 
+// Create makes or replaces path, with owner-only access, positioned at the
+// start. Use it for files written whole; use OpenAppend for logs.
+func Create(path string) (*os.File, error) {
+	return create(path)
+}
+
 // MkdirAllPrivate creates dir and any parents, with owner-only access.
 func MkdirAllPrivate(dir string) error {
 	return mkdirAllPrivate(dir)
