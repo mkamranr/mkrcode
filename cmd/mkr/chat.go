@@ -123,7 +123,7 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 		Mode:    string(cfg.Mode),
 		Model:   caps.Model,
 		Adapter: caps.Adapter,
-		Message: fmt.Sprintf("mkr %s, endpoint %s, redaction %t", version, cfg.BaseURL(), cfg.Redact),
+		Message: fmt.Sprintf("mkr %s, endpoint %s, redaction %t", buildVersion(), cfg.BaseURL(), cfg.Redact),
 	})
 	defer func() {
 		auditLog.Log(audit.Record{Event: audit.EventSessionEnd, Mode: string(perms.Mode())})
@@ -166,7 +166,7 @@ func runChat(ctx context.Context, cfg config.Config, opt chatOptions) (err error
 	}
 
 	render.Banner(
-		fmt.Sprintf("mkr %s  ·  %s  ·  adapter %s", version, caps.Model, caps.Adapter),
+		fmt.Sprintf("mkr %s  ·  %s  ·  adapter %s", buildVersion(), caps.Model, caps.Adapter),
 		fmt.Sprintf("workspace %s", cfg.Workspace),
 		fmt.Sprintf("mode %s  ·  redaction %s  ·  skills %d", perms.Mode(), onOff(cfg.Redact), skillSet.Len()),
 		fmt.Sprintf("audit %s", cfg.AuditPath),

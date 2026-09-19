@@ -82,7 +82,7 @@ func runSelfTest(ctx context.Context, cfg config.Config, skipEndpoint bool, asJS
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(map[string]any{
-			"version": version,
+			"version": buildVersion(),
 			"time":    time.Now().UTC().Format(time.RFC3339),
 			"checks":  results,
 			"passed":  len(results) - failed,
@@ -91,7 +91,7 @@ func runSelfTest(ctx context.Context, cfg config.Config, skipEndpoint bool, asJS
 			return err
 		}
 	} else {
-		fmt.Printf("mkr %s self-test\n\n", version)
+		fmt.Printf("mkr %s self-test\n\n", buildVersion())
 		for _, r := range results {
 			mark := "PASS"
 			if !r.OK {

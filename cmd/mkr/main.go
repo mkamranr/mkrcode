@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -24,7 +25,47 @@ import (
 )
 
 // version is stamped at build time with -ldflags "-X main.version=...".
+// Release builds set it; `go install` does not, so buildVersion falls back
+// to the module version the toolchain records.
 var version = "dev"
+
+// buildVersion returns the version to report.
+//
+// The audit log records which build performed each action, so a binary that
+// reports "dev" when it is actually a tagged release makes a log harder to
+// interpret later. When the linker flag is absent, the module version
+// embedded by the Go toolchain is authoritative.
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return version
+	}
+	if v := info.Main.Version; v != "" && v != "(devel)" {
+		return v
+	}
+	// A local build from a checkout: report the revision if the toolchain
+	// recorded one, which is more useful than a bare "dev".
+	var rev, dirty string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			if len(s.Value) >= 12 {
+				rev = s.Value[:12]
+			}
+		case "vcs.modified":
+			if s.Value == "true" {
+				dirty = "-dirty"
+			}
+		}
+	}
+	if rev != "" {
+		return "dev-" + rev + dirty
+	}
+	return version
+}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -122,7 +163,7 @@ func run(args []string) error {
 		return nil
 	}
 	if sub == "version" || *showVer {
-		fmt.Printf("mkr %s\n", version)
+		fmt.Printf("mkr %s\n", buildVersion())
 		return nil
 	}
 
