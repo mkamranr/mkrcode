@@ -45,6 +45,7 @@ Usage:
   mkr [flags] [prompt]        start an interactive session, or run one prompt
   mkr probe [flags]           report what the configured endpoint supports
   mkr audit [verify] [PATH]   verify the audit log's hash chain
+  mkr selftest [flags]        check that this machine can run mkr correctly
   mkr version                 print the build version
 
 Flags:
@@ -55,6 +56,8 @@ Flags:
   -C DIR            workspace directory (default: current directory)
   -p                print mode: run one prompt and exit, no interaction
   -resume ID        resume a session by ID, or "last"
+  -skip-endpoint    selftest only: skip the endpoint check
+  -json             selftest only: emit the report as JSON
   -no-redact        disable secret redaction (audited)
   -timeout DUR      per-request timeout (default 5m)
 
@@ -70,7 +73,7 @@ func run(args []string) error {
 	sub := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		switch args[0] {
-		case "probe", "version", "help", "audit":
+		case "probe", "version", "help", "audit", "selftest":
 			sub, args = args[0], args[1:]
 		}
 	}
@@ -87,6 +90,8 @@ func run(args []string) error {
 		workdir   = fs.String("C", "", "workspace directory")
 		printMode = fs.Bool("p", false, "run one prompt and exit")
 		noRedact  = fs.Bool("no-redact", false, "disable secret redaction")
+		skipEndpt = fs.Bool("skip-endpoint", false, "selftest: skip the endpoint check")
+		jsonOut   = fs.Bool("json", false, "selftest: emit the report as JSON")
 		timeout   = fs.Duration("timeout", 0, "per-request timeout")
 		resume    = fs.String("resume", "", "resume a session by ID, or \"last\"")
 		showVer   = fs.Bool("version", false, "print version")
@@ -151,6 +156,8 @@ func run(args []string) error {
 		return runProbe(ctx, cfg)
 	case "audit":
 		return runAuditVerify(cfg, args)
+	case "selftest":
+		return runSelfTest(ctx, cfg, *skipEndpt, *jsonOut)
 	default:
 		return runChat(ctx, cfg, chatOptions{
 			Prompt: strings.TrimSpace(strings.Join(fs.Args(), " ")),

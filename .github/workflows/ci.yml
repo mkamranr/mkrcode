@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "v*"]
+  pull_request:
+    branches: [main]
+
+# The client ships as a single static binary to air-gapped machines, so every
+# job below builds with CGO disabled and no module downloads.
+env:
+  CGO_ENABLED: "0"
+  GOTOOLCHAIN: local
+
+jobs:
+  linux:
+    name: test and build (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: false
+
+      - name: Confirm zero external dependencies
+        # The air-gapped build story depends on the module graph being empty.
+        # A stray dependency would mean the offline build needs a vendor step.
+        run: |
+          if [ -f go.sum ]; then
+            echo "::error::go.sum exists; mkr must have no external dependencies"
+            cat go.sum
+            exit 1
+          fi
+          echo "no go.sum: dependency-free"
+
+      - name: go vet
+        run: |
+          go vet ./...
+          go vet -tags devtools ./devtools/...
+
+      - name: Vet for the Windows target
+        # Catches build-tagged Windows code that would otherwise only break at
+        # release time.
+        run: GOOS=windows GOARCH=amd64 go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Race detector
+        run: CGO_ENABLED=1 go test -race ./...
+
+      - name: Egress invariant
+        # Fails if any package outside internal/netguard constructs an HTTP
+        # client, which would mean the endpoint restriction is bypassable.
+        run: make lint-egress
+
+      - name: Cross-compile release targets
+        run: |
+          make windows VERSION=ci
+          make linux VERSION=ci
+          ls -la dist/
+
+      - name: Self-test
+        run: |
+          make build VERSION=ci
+          ./dist/mkr selftest --skip-endpoint
+
+  windows:
+    name: test (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: false
+
+      # This job is the point of the workflow. The client's target is Windows,
+      # and these runners execute the path-jail, shell-detection and config
+      # resolution tests on the real platform rather than a simulation of it.
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build -o dist/mkr.exe ./cmd/mkr
+
+      - name: Self-test on the target platform
+        run: .\dist\mkr.exe selftest --skip-endpoint
