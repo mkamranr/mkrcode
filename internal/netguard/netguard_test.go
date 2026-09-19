@@ -2,6 +2,8 @@ package netguard
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"net"
 	"net/http"
@@ -139,4 +141,93 @@ func TestResolvedLoopbackIsAllowedForConfiguredHostname(t *testing.T) {
 	if g.Allowed("127.0.0.1:1") {
 		t.Error("resolution must not widen the policy to other ports")
 	}
+}
+
+// Every hosted OpenAI-compatible endpoint is HTTPS, so the restricted
+// transport has to work over TLS, not only over plaintext. These tests use
+// the real NewClient path rather than a hand-built transport, so a change to
+// how the client is constructed is caught here.
+func TestHTTPSToAllowedHostSucceeds(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil {
+			t.Error("request did not arrive over TLS")
+		}
+		w.Write([]byte(`{"data":[]}`))
+	}))
+	defer srv.Close()
+
+	host := strings.TrimPrefix(srv.URL, "https://")
+	client, _, err := NewClient(host, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trustTestServer(t, client, srv)
+
+	resp, err := client.Get(srv.URL + "/v1/models")
+	if err != nil {
+		t.Fatalf("HTTPS request to the allowed host failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+// The destination check must happen at dial time, before any TLS handshake,
+// so a blocked host is refused without a connection being established.
+func TestHTTPSToBlockedHostIsRefusedBeforeHandshake(t *testing.T) {
+	allowed := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer allowed.Close()
+	forbidden := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("the forbidden server was reached")
+	}))
+	defer forbidden.Close()
+
+	host := strings.TrimPrefix(allowed.URL, "https://")
+	client, _, err := NewClient(host, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trustTestServer(t, client, allowed)
+
+	_, err = client.Get(forbidden.URL)
+	if err == nil {
+		t.Fatal("an HTTPS request to a forbidden host succeeded")
+	}
+	if !errors.Is(err, ErrBlocked) {
+		t.Errorf("err = %v, want ErrBlocked", err)
+	}
+}
+
+// A hostname endpoint on the default HTTPS port must be permitted without
+// the port having to be written out, since that is how people configure a
+// hosted API.
+func TestImplicitHTTPSPortIsAllowed(t *testing.T) {
+	g, err := New("api.example.com:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !g.Allowed("api.example.com:443") {
+		t.Error("the configured host on 443 must be allowed")
+	}
+	if g.Allowed("api.example.com:80") {
+		t.Error("a different port must not be allowed")
+	}
+	if g.Allowed("other.example.com:443") {
+		t.Error("a different host must not be allowed")
+	}
+}
+
+// trustTestServer adds the test server's self-signed certificate to the
+// restricted client, so the TLS path is exercised for real rather than
+// being skipped with InsecureSkipVerify.
+func trustTestServer(t *testing.T, client *http.Client, srv *httptest.Server) {
+	t.Helper()
+	tr, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("client transport is %T, want *http.Transport", client.Transport)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(srv.Certificate())
+	tr.TLSClientConfig = &tls.Config{RootCAs: pool}
 }

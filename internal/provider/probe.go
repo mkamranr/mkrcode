@@ -69,8 +69,10 @@ func Probe(ctx context.Context, c *Client, want string, model string) (Capabilit
 	if caps.Model == "" {
 		caps.Model = models[0].ID
 		if len(models) > 1 {
-			caps.Notes = append(caps.Notes,
-				fmt.Sprintf("endpoint serves %d models; defaulting to %q", len(models), caps.Model))
+			caps.Notes = append(caps.Notes, fmt.Sprintf(
+				"endpoint serves %d models and defaulted to %q; "+
+					"choose one explicitly with: mkr config set model <id>",
+				len(models), caps.Model))
 		}
 	}
 	for _, m := range models {
@@ -79,8 +81,14 @@ func Probe(ctx context.Context, c *Client, want string, model string) (Capabilit
 		}
 	}
 	if caps.MaxModelLen == 0 {
+		// max_model_len is a vLLM extension. Hosted OpenAI-compatible
+		// providers do not report it, which leaves context budgeting with
+		// nothing to budget against. Guessing a window would be worse than
+		// not compacting, so say exactly how to supply it instead.
 		caps.Notes = append(caps.Notes,
-			"endpoint did not report max_model_len; set max_model_len in config to enable context budgeting")
+			"endpoint did not report a context window, so long sessions will not be compacted "+
+				"automatically and may eventually be rejected by the server. "+
+				"Set it with: mkr config set max_model_len <tokens>")
 	}
 
 	switch strings.ToLower(want) {

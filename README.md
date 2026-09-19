@@ -13,6 +13,8 @@ Runs against a self-hosted vLLM server. Contacts nothing else — by design, and
 
 [Installation](docs/INSTALLATION.md) · [Configuration](docs/CONFIGURATION.md) · [Usage](docs/USAGE.md) · [Skills](docs/SKILLS.md) · [Security](docs/SECURITY.md) · [Deployment](deploy/README.md)
 
+*Evaluating it first? → [Testing locally on macOS or Linux](docs/TESTING-LOCALLY.md)*
+
 </div>
 
 ---
@@ -204,5 +206,6 @@ Full detail in **[docs/SECURITY.md](docs/SECURITY.md)**.
 | [Usage](docs/USAGE.md) | Daily use, permission modes, commands, project memory |
 | [Skills](docs/SKILLS.md) | Writing and installing skills, delegating to sub-agents |
 | [Security](docs/SECURITY.md) | The security model and its stated limits |
+| [Testing locally](docs/TESTING-LOCALLY.md) | Trying it on macOS or Linux against a local model or hosted API |
 | [Deployment](deploy/README.md) | Media transfer, vLLM serve profiles, GPU sizing |
 | [Network requirement](deploy/NETWORK-REQUIREMENT.md) | The one firewall rule, written for a network team |

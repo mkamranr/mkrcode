@@ -225,3 +225,93 @@ func TestStreamSurfacesAPIError(t *testing.T) {
 		t.Errorf("err = %v, want the status code preserved", err)
 	}
 }
+
+// Hosted OpenAI-compatible providers authenticate with a bearer token. This
+// path is exercised nowhere else, and a silently missing header would look
+// like an outage rather than a configuration mistake.
+func TestAPIKeyIsSentAsBearerToken(t *testing.T) {
+	s := mock.New(mock.Turn{Text: "hello"})
+	defer s.Close()
+
+	hc, _, err := netguard.NewClient(s.Host(), 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const key = "sk-test-abcdef123456"
+	c, err := NewClient(s.URL(), key, hc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := c.Models(context.Background()); err != nil {
+		t.Fatalf("Models: %v", err)
+	}
+	if err := c.Stream(context.Background(), ChatRequest{Model: "m"}, func(Event) error { return nil }); err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+
+	headers := s.Headers()
+	if len(headers) < 2 {
+		t.Fatalf("recorded %d requests, want at least 2", len(headers))
+	}
+	for i, h := range headers {
+		got := h.Get("Authorization")
+		if got != "Bearer "+key {
+			t.Errorf("request %d Authorization = %q, want the bearer token", i+1, got)
+		}
+	}
+}
+
+// With no key configured the header must be absent entirely, not sent empty:
+// some servers reject "Bearer " with no value.
+func TestNoAPIKeySendsNoAuthorizationHeader(t *testing.T) {
+	s := mock.New(mock.Turn{Text: "hello"})
+	defer s.Close()
+
+	c := newTestClient(t, s)
+	if _, err := c.Models(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for i, h := range s.Headers() {
+		if _, ok := h["Authorization"]; ok {
+			t.Errorf("request %d sent an Authorization header with no key configured", i+1)
+		}
+	}
+}
+
+// A provider that lists many models must not have one silently chosen for
+// the operator without saying so.
+func TestProbeReportsWhenManyModelsAreServed(t *testing.T) {
+	s := mock.New()
+	defer s.Close()
+	s.ExtraModels = []string{"model-b", "model-c"}
+
+	caps, err := Probe(context.Background(), newTestClient(t, s), "auto", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(caps.Notes, " ")
+	if !strings.Contains(joined, "mkr config set model") {
+		t.Errorf("notes should tell the operator how to choose: %q", joined)
+	}
+}
+
+// Hosted providers do not report max_model_len, which silently disables
+// context compaction. The operator must be told how to supply it.
+func TestProbeReportsMissingContextWindow(t *testing.T) {
+	s := mock.New()
+	defer s.Close()
+	s.MaxModelLen = 0
+
+	caps, err := Probe(context.Background(), newTestClient(t, s), "auto", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if caps.MaxModelLen != 0 {
+		t.Fatalf("MaxModelLen = %d, want 0", caps.MaxModelLen)
+	}
+	joined := strings.Join(caps.Notes, " ")
+	if !strings.Contains(joined, "mkr config set max_model_len") {
+		t.Errorf("notes should give the exact command: %q", joined)
+	}
+}

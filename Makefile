@@ -25,6 +25,21 @@ windows: ## Build mkr.exe for windows/amd64
 	@mkdir -p $(DIST)
 	GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/mkr.exe ./cmd/mkr
 
+.PHONY: macos
+macos: ## Build a universal macOS binary (Intel + Apple silicon)
+	@mkdir -p $(DIST)
+	GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/mkr-darwin-amd64 ./cmd/mkr
+	GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$(LDFLAGS)" -o $(DIST)/mkr-darwin-arm64 ./cmd/mkr
+	@# lipo produces one binary that runs natively on both architectures, so
+	@# a single download works on any Mac.
+	@if command -v lipo >/dev/null 2>&1; then \
+		lipo -create -output $(DIST)/mkr-darwin-universal \
+			$(DIST)/mkr-darwin-amd64 $(DIST)/mkr-darwin-arm64 && \
+		echo "built universal binary:" && lipo -info $(DIST)/mkr-darwin-universal; \
+	else \
+		echo "lipo unavailable; per-architecture binaries only"; \
+	fi
+
 .PHONY: linux
 linux: ## Build for linux/amd64
 	@mkdir -p $(DIST)
@@ -87,6 +102,27 @@ bundle-windows: windows ## Produce the Windows client bundle for removable media
 	cd $(DIST) && rm -f mkr-windows-amd64-$(VERSION).zip && zip -qr mkr-windows-amd64-$(VERSION).zip bundle
 	@echo "built $(DIST)/mkr-windows-amd64-$(VERSION).zip"
 	@cat $(DIST)/bundle/SHA256SUMS
+
+.PHONY: bundle-macos
+bundle-macos: macos ## Produce the macOS bundle
+	@rm -rf $(DIST)/bundle-macos && mkdir -p $(DIST)/bundle-macos
+	@if [ -f $(DIST)/mkr-darwin-universal ]; then \
+		cp $(DIST)/mkr-darwin-universal $(DIST)/bundle-macos/mkr; \
+	else \
+		cp $(DIST)/mkr-darwin-amd64 $(DIST)/bundle-macos/mkr; \
+	fi
+	chmod +x $(DIST)/bundle-macos/mkr
+	cp README.md $(DIST)/bundle-macos/
+	mkdir -p $(DIST)/bundle-macos/docs
+	cp docs/INSTALLATION.md docs/CONFIGURATION.md docs/USAGE.md docs/SECURITY.md docs/SKILLS.md docs/TESTING-LOCALLY.md $(DIST)/bundle-macos/docs/
+	mkdir -p $(DIST)/bundle-macos/examples
+	cp -R examples/skills $(DIST)/bundle-macos/examples/
+	cd $(DIST)/bundle-macos && shasum -a 256 $$(find . -type f | sed 's|^\./||' | sort) > SHA256SUMS
+	cd $(DIST) && rm -f mkr-darwin-$(VERSION).tar.gz && tar czf mkr-darwin-$(VERSION).tar.gz -C bundle-macos .
+	@echo "built $(DIST)/mkr-darwin-$(VERSION).tar.gz"
+
+.PHONY: bundle-all
+bundle-all: bundle-windows bundle-macos ## Build every release bundle
 
 .PHONY: clean
 clean: ## Remove build output

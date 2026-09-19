@@ -58,6 +58,9 @@ type Server struct {
 
 	// requests records every decoded chat request, for assertions.
 	requests []map[string]any
+	// headers records the headers of every request, so authentication can
+	// be verified.
+	headers []http.Header
 
 	// ModelID is reported by /v1/models.
 	ModelID string
@@ -72,6 +75,9 @@ type Server struct {
 	// carrying this tool are answered out of band and never consume a
 	// scripted turn, so a script describes the conversation only.
 	ProbeToolName string
+	// ExtraModels are reported by /v1/models alongside ModelID, to
+	// simulate a provider serving many models.
+	ExtraModels []string
 	// ProbeTurn, when set, is the response to a probe handshake. It exists
 	// so error paths in the probe can be exercised.
 	ProbeTurn *Turn
@@ -106,6 +112,7 @@ func (s *Server) SetTurns(turns ...Turn) {
 	s.turns = turns
 	s.idx = 0
 	s.requests = nil
+	s.headers = nil
 }
 
 // Requests returns every chat request the server received.
@@ -124,17 +131,30 @@ func (s *Server) RequestCount() int {
 	return len(s.requests)
 }
 
+// Headers returns the headers of every request the server received.
+func (s *Server) Headers() []http.Header {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]http.Header, len(s.headers))
+	copy(out, s.headers)
+	return out
+}
+
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	s.headers = append(s.headers, r.Header.Clone())
+	s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"object": "list",
-		"data": []map[string]any{{
-			"id":            s.ModelID,
-			"object":        "model",
-			"owned_by":      "vllm",
-			"max_model_len": s.MaxModelLen,
-		}},
-	})
+	data := []map[string]any{{
+		"id":            s.ModelID,
+		"object":        "model",
+		"owned_by":      "vllm",
+		"max_model_len": s.MaxModelLen,
+	}}
+	for _, id := range s.ExtraModels {
+		data = append(data, map[string]any{"id": id, "object": "model", "owned_by": "vllm"})
+	}
+	json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": data})
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +165,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.Lock()
+	s.headers = append(s.headers, r.Header.Clone())
 	s.requests = append(s.requests, body)
 	turn := s.nextTurnLocked(body)
 	s.mu.Unlock()

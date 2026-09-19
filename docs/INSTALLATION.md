@@ -14,6 +14,10 @@ independent — install the client and validate it before the server exists.
 
 ---
 
+> **Just evaluating?** To try `mkr` on a Mac or Linux box against a local model
+> or a hosted API, see **[Testing locally](TESTING-LOCALLY.md)** instead. This
+> document covers the air-gapped deployment.
+
 ## Prerequisites
 
 | | Requirement |
